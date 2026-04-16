@@ -19,10 +19,10 @@ pub struct PingService {
 }
 
 impl PingService {
-    pub fn new() -> Self {
+    pub fn new() -> Result<Self, String> {
         let config = Config::default();
-        let client = Client::new(&config).expect("Failed to create ping client");
-        Self { client }
+        let client = Client::new(&config).map_err(|e| format!("ICMP 클라이언트 초기화 실패: {}. 관리자 권한이 필요할 수 있습니다.", e))?;
+        Ok(Self { client })
     }
 
     pub async fn ping(&self, host: &str) -> PingResult {
@@ -31,13 +31,25 @@ impl PingService {
             Err(_) => {
                 // Try resolving hostname if it's not a direct IP
                 match tokio::net::lookup_host(format!("{}:0", host)).await {
-                    Ok(mut addrs) => addrs.next().map(|a| a.ip()).unwrap_or("0.0.0.0".parse().unwrap()),
+                    Ok(mut addrs) => {
+                        if let Some(addr) = addrs.next() {
+                            addr.ip()
+                        } else {
+                            return PingResult {
+                                ip: host.to_string(),
+                                latency: None,
+                                timestamp: Local::now(),
+                                status: false,
+                                error: Some("DNS 주소를 찾을 수 없음".to_string()),
+                            };
+                        }
+                    },
                     Err(_) => return PingResult {
                         ip: host.to_string(),
                         latency: None,
                         timestamp: Local::now(),
                         status: false,
-                        error: Some("DNS Resolution Failed".to_string()),
+                        error: Some("DNS 조회 실패".to_string()),
                     },
                 }
             }

@@ -11,12 +11,18 @@ export default function Dashboard() {
   const { settings, results, setResults, setSettings } = useAppStore();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [latestRelease, setLatestRelease] = useState<any>(null);
+  const [engineError, setEngineError] = useState<string | null>(null);
 
   useEffect(() => {
     // Initial fetch
     invoke("get_settings").then((s: any) => setSettings(s));
     invoke("get_ping_results").then((r: any) => setResults(r));
     
+    // Check for engine errors (e.g. permission denied)
+    invoke("get_engine_error").then((err: any) => {
+      if (err) setEngineError(err);
+    });
+
     // Fetch latest release info
     invoke("get_latest_release")
       .then((res: any) => setLatestRelease(res))
@@ -24,7 +30,7 @@ export default function Dashboard() {
 
     // Listen for real-time updates from Rust
     const unlisten = listen("ping-update", (event: any) => {
-      setResults(event.payload);
+      setResults(event.payload as any);
     });
 
     return () => {
@@ -62,7 +68,24 @@ export default function Dashboard() {
       </header>
 
       {/* Grid Content */}
-      <div className="flex-1 overflow-y-auto px-8 pb-8 z-10">
+      <main className="flex-1 overflow-y-auto p-4 space-y-4 z-10">
+        {/* Security & Status Alert */}
+        {engineError && (
+          <div className="p-3 rounded-lg bg-neon-red/10 border border-neon-red/30 flex items-center justify-between animate-pulse">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="text-neon-red" size={20} />
+              <p className="text-sm text-neon-red font-medium">
+                {engineError}
+              </p>
+            </div>
+            <button 
+              onClick={() => window.location.reload()}
+              className="px-3 py-1 rounded bg-neon-red/20 text-xs font-bold hover:bg-neon-red/30 transition-colors"
+            >
+              다시 시도
+            </button>
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {settings.targets.map((target) => (
             <PingCard

@@ -42,9 +42,10 @@ impl Default for AppSettings {
 }
 
 pub struct AppState {
-    pub service: PingService,
+    pub service: Option<PingService>,
     pub results: Arc<Mutex<HashMap<String, Vec<PingResult>>>>,
     pub settings: Arc<Mutex<AppSettings>>,
+    pub error: Arc<Mutex<Option<String>>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -58,6 +59,7 @@ pub struct ReleaseInfo {
 async fn get_latest_release() -> Result<ReleaseInfo, String> {
     let client = reqwest::Client::builder()
         .user_agent("new-ping-monitor")
+        .timeout(Duration::from_secs(10))
         .build()
         .map_err(|e| e.to_string())?;
 
@@ -86,23 +88,34 @@ async fn get_settings(
 }
 
 #[tauri::command]
+async fn get_engine_error(
+    state: tauri::State<'_, AppState>,
+) -> Result<Option<String>, String> {
+    Ok(state.error.lock().await.clone())
+}
+
+#[tauri::command]
 async fn update_settings(
     state: tauri::State<'_, AppState>,
     new_settings: AppSettings,
 ) -> Result<(), String> {
     *state.settings.lock().await = new_settings;
-    // We might want to persist to disk here
     Ok(())
 }
 
 async fn ping_loop<R: Runtime>(app: AppHandle<R>, state: Arc<AppState>) {
+    let service = match &state.service {
+        Some(s) => s,
+        None => return, // No service, no loop
+    };
+
     loop {
         let settings = {
             state.settings.lock().await.clone()
         };
 
         for target in &settings.targets {
-            let res = state.service.ping(&target.host).await;
+            let res = service.ping(&target.host).await;
             
             let mut results = state.results.lock().await;
             let entry = results.entry(target.host.clone()).or_insert_with(Vec::new);
@@ -122,40 +135,63 @@ async fn ping_loop<R: Runtime>(app: AppHandle<R>, state: Arc<AppState>) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let app_state = AppState {
-        service: PingService::new(),
-        results: Arc::new(Mutex::new(HashMap::new())),
-        settings: Arc::new(Mutex::new(AppSettings::default())),
+    let (service, error) = match PingService::new() {
+        Ok(s) => (Some(s), None),
+        Err(e) => (None, Some(e)),
     };
 
-    let results_clone = Arc::clone(&app_state.results);
-    let settings_clone = Arc::clone(&app_state.settings);
+    let results = Arc::new(Mutex::new(HashMap::new()));
+    let settings = Arc::new(Mutex::new(AppSettings::default()));
+    let error_state = Arc::new(Mutex::new(error));
+
+    let app_state = AppState {
+        service,
+        results: Arc::clone(&results),
+        settings: Arc::clone(&settings),
+        error: Arc::clone(&error_state),
+    };
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_log::Builder::new().build())
         .manage(app_state)
         .setup(move |app| {
-            let handle = app.handle().clone();
-            let service = PingService::new();
-            
-            let state_for_loop = Arc::new(AppState {
-                service,
-                results: results_clone,
-                settings: settings_clone,
-            });
-            
-            tokio::spawn(async move {
-                ping_loop(handle, state_for_loop).await;
-            });
+            if let Some(state) = app.try_state::<AppState>() {
+                let handle = app.handle().clone();
+                let results_clone = Arc::clone(&state.results);
+                let settings_clone = Arc::clone(&state.settings);
+                let error_clone = Arc::clone(&state.error);
+                
+                // Reconstruction for thread safety in spawn
+                let service_clone = state.service.as_ref().map(|s| {
+                    // This is a bit tricky since Client isn't easily cloneable if it's not Arc
+                    // But surge-ping's Client is internally Arced.
+                    // Wait, let's just use the state directly.
+                });
+
+                // Optimization: just use the shareable state
+                // Since AppState is managed, it's already thread-safe.
+                // However, we need to pass it to the loop.
+                let state_arc = Arc::new(AppState {
+                    service: state.service.clone(), // surging-ping Client supports clone
+                    results: results_clone,
+                    settings: settings_clone,
+                    error: error_clone,
+                });
+
+                tokio::spawn(async move {
+                    ping_loop(handle, state_arc).await;
+                });
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             get_ping_results,
             get_settings,
             update_settings,
-            get_latest_release
+            get_latest_release,
+            get_engine_error
         ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .expect("Tauri 실행 중 치명적인 오류가 발생했습니다.");
 }
