@@ -14,6 +14,7 @@ pub struct PingResult {
     pub error: Option<String>,
 }
 
+#[derive(Clone)]
 pub struct PingService {
     client: Client,
 }

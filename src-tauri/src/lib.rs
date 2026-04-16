@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tauri::{AppHandle, Runtime, Emitter};
+use tauri::{AppHandle, Runtime, Emitter, Manager};
 use std::time::Duration;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -162,21 +162,13 @@ pub fn run() {
                 let settings_clone = Arc::clone(&state.settings);
                 let error_clone = Arc::clone(&state.error);
                 
-                // Reconstruction for thread safety in spawn
-                let service_clone = state.service.as_ref().map(|s| {
-                    // This is a bit tricky since Client isn't easily cloneable if it's not Arc
-                    // But surge-ping's Client is internally Arced.
-                    // Wait, let's just use the state directly.
-                });
-
-                // Optimization: just use the shareable state
                 // Since AppState is managed, it's already thread-safe.
                 // However, we need to pass it to the loop.
                 let state_arc = Arc::new(AppState {
-                    service: state.service.clone(), // surging-ping Client supports clone
-                    results: results_clone,
-                    settings: settings_clone,
-                    error: error_clone,
+                    service: state.service.clone(), 
+                    results: Arc::clone(&state.results),
+                    settings: Arc::clone(&state.settings),
+                    error: Arc::clone(&state.error),
                 });
 
                 tokio::spawn(async move {
