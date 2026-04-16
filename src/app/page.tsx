@@ -1,65 +1,102 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useEffect, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
+import { Settings, Plus, Activity, Zap } from "lucide-react";
+import PingCard from "@/components/PingCard";
+import { useAppStore } from "@/store/useAppStore";
+
+export default function Dashboard() {
+  const { settings, results, setResults, setSettings } = useAppStore();
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  useEffect(() => {
+    // Initial fetch
+    invoke("get_settings").then((s: any) => setSettings(s));
+    invoke("get_ping_results").then((r: any) => setResults(r));
+
+    // Listen for real-time updates from Rust
+    const unlisten = listen("ping-update", (event: any) => {
+      setResults(event.payload);
+    });
+
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, []);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div className="flex flex-col h-full bg-[#050505] text-white overflow-hidden relative">
+      {/* Background Decorative Elements */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-neon-blue rounded-full blur-[120px] opacity-10" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-neon-pink rounded-full blur-[120px] opacity-10" />
+      </div>
+
+      {/* Header */}
+      <header className="flex justify-between items-center px-8 py-6 z-10">
+        <div>
+          <h1 className="text-3xl font-black tracking-tighter flex items-center gap-3">
+            <Zap className="text-neon-blue fill-neon-blue/20" size={32} />
+            NETWORK <span className="text-white/20">DASHBOARD</span>
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="text-[10px] uppercase tracking-[0.3em] text-white/40 mt-1 font-bold">
+            Real-time Latency Monitoring • Cross-Platform
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+        <div className="flex gap-3">
+          <button 
+            className="glass p-3 rounded-full hover:bg-white/10 transition-colors"
+            onClick={() => setIsSettingsOpen(true)}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            <Settings size={20} className="text-white/70" />
+          </button>
         </div>
-      </main>
+      </header>
+
+      {/* Grid Content */}
+      <div className="flex-1 overflow-y-auto px-8 pb-8 z-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {settings.targets.map((target) => (
+            <PingCard
+              key={target.host}
+              name={target.name}
+              host={target.host}
+              results={results[target.host] || []}
+              colors={{
+                online: settings.colors.online,
+                offline: settings.colors.offline,
+              }}
+            />
+          ))}
+          
+          {/* Add New Hook */}
+          <button className="glass border-dashed border-2 border-white/10 flex flex-col items-center justify-center p-8 rounded-2xl hover:border-neon-blue/40 hover:bg-neon-blue/5 transition-all group min-h-[200px]">
+            <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+              <Plus size={24} className="text-white/40 group-hover:text-neon-blue" />
+            </div>
+            <span className="text-sm font-bold text-white/30 group-hover:text-white/60">Add New Target</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Footer / Stats */}
+      <footer className="px-8 py-4 border-t border-white/5 flex justify-between items-center z-10">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-neon-green animate-pulse" />
+            <span className="text-[10px] font-bold text-white/40 uppercase">System Active</span>
+          </div>
+          <div className="w-px h-3 bg-white/10" />
+          <span className="text-[10px] font-bold text-white/40 uppercase">
+            {settings.targets.length} Targets Monitored
+          </span>
+        </div>
+        <div className="text-[10px] font-bold text-white/20 uppercase">
+          v0.1.0 • Antigravity AI
+        </div>
+      </footer>
     </div>
   );
 }

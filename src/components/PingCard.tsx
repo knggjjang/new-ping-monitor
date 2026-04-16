@@ -1,0 +1,88 @@
+"use client";
+
+import React from "react";
+import { Area, AreaChart, ResponsiveContainer, YAxis } from "recharts";
+import { Activity, ShieldCheck, ShieldAlert } from "lucide-react";
+
+interface PingResult {
+  ip: String;
+  latency: number | null;
+  status: boolean;
+  timestamp: string;
+}
+
+interface PingCardProps {
+  name: string;
+  host: string;
+  results: PingResult[];
+  colors: {
+    online: string;
+    offline: string;
+  };
+}
+
+export default function PingCard({ name, host, results, colors }: PingCardProps) {
+  const latest = results[results.length - 1];
+  const isOnline = latest?.status ?? false;
+  const currentLatency = latest?.latency ?? 0;
+
+  // Prepare data for the chart
+  const data = results.map((r, i) => ({
+    value: r.latency ?? 0,
+    index: i,
+  }));
+
+  const currentColor = isOnline ? colors.online : colors.offline;
+
+  return (
+    <div className={`glass relative p-5 rounded-2xl overflow-hidden transition-all duration-500 ${isOnline ? 'neon-border-green' : 'neon-border-red'}`}>
+      <div className="flex justify-between items-start mb-4">
+        <div>
+          <h3 className="text-lg font-bold tracking-tight text-white/90">{name}</h3>
+          <p className="text-xs font-mono text-white/40">{host}</p>
+        </div>
+        <div className={`p-2 rounded-full ${isOnline ? 'bg-green-500/10 text-neon-green' : 'bg-red-500/10 text-neon-red'}`}>
+          {isOnline ? <ShieldCheck size={20} /> : <ShieldAlert size={20} />}
+        </div>
+      </div>
+
+      <div className="flex items-baseline gap-2 mb-6">
+        <span className={`text-3xl font-black ${isOnline ? 'neon-text-green' : 'neon-text-red'}`}>
+          {isOnline ? `${currentLatency}ms` : "OFFLINE"}
+        </span>
+        <span className="text-[10px] font-bold text-white/20 tracking-widest uppercase">
+          Latency
+        </span>
+      </div>
+
+      <div className="h-24 w-full -mx-5 -mb-5 mt-4 opacity-50">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data}>
+            <defs>
+              <linearGradient id={`color-${host}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={currentColor} stopOpacity={0.3} />
+                <stop offset="95%" stopColor={currentColor} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <YAxis hide domain={[0, 'auto']} />
+            <Area
+              type="monotone"
+              dataKey="value"
+              stroke={currentColor}
+              strokeWidth={2}
+              fillOpacity={1}
+              fill={`url(#color-${host})`}
+              isAnimationActive={false}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Glow background effect */}
+      <div 
+        className="absolute -bottom-10 -right-10 w-32 h-32 blur-[60px] opacity-20 pointer-events-none"
+        style={{ backgroundColor: currentColor }}
+      />
+    </div>
+  );
+}
