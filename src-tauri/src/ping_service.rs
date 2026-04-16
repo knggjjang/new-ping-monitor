@@ -46,10 +46,11 @@ impl PingService {
         let mut pinger = self.client.pinger(ip, PingIdentifier(rand::random())).await;
         pinger.timeout(Duration::from_secs(2));
 
+        use rand::Rng;
         let mut data = [0u8; 32];
-        rand::fill(&mut data);
+        rand::thread_rng().fill(&mut data);
 
-        let t0 = std::time::Instant::now();
+        let _t0 = std::time::Instant::now();
         match timeout(Duration::from_secs(2), pinger.ping(PingSequence(0), &data)).await {
             Ok(Ok((_, duration))) => {
                 PingResult {

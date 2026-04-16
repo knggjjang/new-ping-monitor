@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tauri::{AppHandle, Manager, Runtime};
+use tauri::{AppHandle, Runtime, Emitter};
 use std::time::Duration;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
