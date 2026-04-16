@@ -47,6 +47,30 @@ pub struct AppState {
     pub settings: Arc<Mutex<AppSettings>>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReleaseInfo {
+    pub tag_name: String,
+    pub body: String,
+    pub published_at: String,
+}
+
+#[tauri::command]
+async fn get_latest_release() -> Result<ReleaseInfo, String> {
+    let client = reqwest::Client::builder()
+        .user_agent("new-ping-monitor")
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let res = client
+        .get("https://api.github.com/repos/knggjjang/new-ping-monitor/releases/latest")
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let release: ReleaseInfo = res.json().await.map_err(|e| e.to_string())?;
+    Ok(release)
+}
+
 #[tauri::command]
 async fn get_ping_results(
     state: tauri::State<'_, AppState>,
@@ -129,7 +153,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_ping_results,
             get_settings,
-            update_settings
+            update_settings,
+            get_latest_release
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

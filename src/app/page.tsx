@@ -10,11 +10,17 @@ import { useAppStore } from "@/store/useAppStore";
 export default function Dashboard() {
   const { settings, results, setResults, setSettings } = useAppStore();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [latestRelease, setLatestRelease] = useState<any>(null);
 
   useEffect(() => {
     // Initial fetch
     invoke("get_settings").then((s: any) => setSettings(s));
     invoke("get_ping_results").then((r: any) => setResults(r));
+    
+    // Fetch latest release info
+    invoke("get_latest_release")
+      .then((res: any) => setLatestRelease(res))
+      .catch((err) => console.error("Failed to fetch release:", err));
 
     // Listen for real-time updates from Rust
     const unlisten = listen("ping-update", (event: any) => {
@@ -93,8 +99,18 @@ export default function Dashboard() {
             {settings.targets.length} Targets Monitored
           </span>
         </div>
-        <div className="text-[10px] font-bold text-white/20 uppercase">
-          v0.1.0 • Antigravity AI
+        <div className="flex items-center gap-4">
+          {latestRelease && (
+            <div className="flex items-center gap-2 px-2 py-0.5 rounded bg-neon-blue/10 border border-neon-blue/20">
+              <Activity size={10} className="text-neon-blue" />
+              <span className="text-[10px] font-bold text-neon-blue uppercase">
+                Latest: {latestRelease.tag_name}
+              </span>
+            </div>
+          )}
+          <div className="text-[10px] font-bold text-white/20 uppercase">
+            v0.1.0 • Antigravity AI
+          </div>
         </div>
       </footer>
     </div>
