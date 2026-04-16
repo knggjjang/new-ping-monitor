@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tauri::{AppHandle, Runtime, Emitter, Manager};
+use tauri::{AppHandle, Runtime, Emitter};
 use std::time::Duration;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -18,7 +18,7 @@ pub struct Target {
 pub struct AppSettings {
     pub targets: Vec<Target>,
     pub interval_ms: u64,
-    pub colors: HashMap<String, String>, // e.g., "online": "#00FF00", "offline": "#FF0000"
+    pub colors: HashMap<String, String>,
 }
 
 impl Default for AppSettings {
@@ -41,11 +41,17 @@ impl Default for AppSettings {
     }
 }
 
-pub struct AppState {
+// Shared state passed around via Arc
+pub struct SharedState {
     pub service: Option<Arc<PingService>>,
     pub results: Arc<Mutex<HashMap<String, Vec<PingResult>>>>,
     pub settings: Arc<Mutex<AppSettings>>,
     pub error: Arc<Mutex<Option<String>>>,
+}
+
+// Thin wrapper for Tauri managed state
+pub struct AppState {
+    pub inner: Arc<SharedState>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -77,21 +83,21 @@ async fn get_latest_release() -> Result<ReleaseInfo, String> {
 async fn get_ping_results(
     state: tauri::State<'_, AppState>,
 ) -> Result<HashMap<String, Vec<PingResult>>, String> {
-    Ok(state.results.lock().await.clone())
+    Ok(state.inner.results.lock().await.clone())
 }
 
 #[tauri::command]
 async fn get_settings(
     state: tauri::State<'_, AppState>,
 ) -> Result<AppSettings, String> {
-    Ok(state.settings.lock().await.clone())
+    Ok(state.inner.settings.lock().await.clone())
 }
 
 #[tauri::command]
 async fn get_engine_error(
     state: tauri::State<'_, AppState>,
 ) -> Result<Option<String>, String> {
-    Ok(state.error.lock().await.clone())
+    Ok(state.inner.error.lock().await.clone())
 }
 
 #[tauri::command]
@@ -99,25 +105,22 @@ async fn update_settings(
     state: tauri::State<'_, AppState>,
     new_settings: AppSettings,
 ) -> Result<(), String> {
-    *state.settings.lock().await = new_settings;
+    *state.inner.settings.lock().await = new_settings;
     Ok(())
 }
 
-async fn ping_loop<R: Runtime>(app: AppHandle<R>, state: Arc<AppState>) {
-    let service = match &state.service {
+async fn ping_loop<R: Runtime>(app: AppHandle<R>, shared: Arc<SharedState>) {
+    let service = match &shared.service {
         Some(s) => Arc::clone(s),
-        None => return,
+        None => return, // 권한 없음 - 루프 종료
     };
 
     loop {
-        let settings = {
-            state.settings.lock().await.clone()
-        };
+        let settings = shared.settings.lock().await.clone();
 
         for target in &settings.targets {
             let res = service.ping(&target.host).await;
-            
-            let mut results = state.results.lock().await;
+            let mut results = shared.results.lock().await;
             let entry = results.entry(target.host.clone()).or_insert_with(Vec::new);
             entry.push(res);
             if entry.len() > 50 {
@@ -125,8 +128,7 @@ async fn ping_loop<R: Runtime>(app: AppHandle<R>, state: Arc<AppState>) {
             }
         }
 
-        // Emit update event to frontend
-        let current_results = state.results.lock().await.clone();
+        let current_results = shared.results.lock().await.clone();
         let _ = app.emit("ping-update", current_results);
 
         tokio::time::sleep(Duration::from_millis(settings.interval_ms)).await;
@@ -140,15 +142,17 @@ pub fn run() {
         Err(e) => (None, Some(e)),
     };
 
-    let results = Arc::new(Mutex::new(HashMap::new()));
-    let settings = Arc::new(Mutex::new(AppSettings::default()));
-    let error_state = Arc::new(Mutex::new(error));
+    let shared = Arc::new(SharedState {
+        service,
+        results: Arc::new(Mutex::new(HashMap::new())),
+        settings: Arc::new(Mutex::new(AppSettings::default())),
+        error: Arc::new(Mutex::new(error)),
+    });
+
+    let shared_for_setup = Arc::clone(&shared);
 
     let app_state = AppState {
-        service,
-        results: Arc::clone(&results),
-        settings: Arc::clone(&settings),
-        error: Arc::clone(&error_state),
+        inner: shared,
     };
 
     tauri::Builder::default()
@@ -156,20 +160,13 @@ pub fn run() {
         .plugin(tauri_plugin_log::Builder::new().build())
         .manage(app_state)
         .setup(move |app| {
-            if let Some(state) = app.try_state::<AppState>() {
-                let handle = app.handle().clone();
-                
-                let state_arc = Arc::new(AppState {
-                    service: state.service.as_ref().map(|s| Arc::clone(s)),
-                    results: Arc::clone(&state.results),
-                    settings: Arc::clone(&state.settings),
-                    error: Arc::clone(&state.error),
-                });
+            let handle = app.handle().clone();
+            let shared_clone = Arc::clone(&shared_for_setup);
 
-                tokio::spawn(async move {
-                    ping_loop(handle, state_arc).await;
-                });
-            }
+            tokio::spawn(async move {
+                ping_loop(handle, shared_clone).await;
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
