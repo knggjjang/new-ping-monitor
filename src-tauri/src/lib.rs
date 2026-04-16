@@ -42,7 +42,7 @@ impl Default for AppSettings {
 }
 
 pub struct AppState {
-    pub service: Option<PingService>,
+    pub service: Option<Arc<PingService>>,
     pub results: Arc<Mutex<HashMap<String, Vec<PingResult>>>>,
     pub settings: Arc<Mutex<AppSettings>>,
     pub error: Arc<Mutex<Option<String>>>,
@@ -105,8 +105,8 @@ async fn update_settings(
 
 async fn ping_loop<R: Runtime>(app: AppHandle<R>, state: Arc<AppState>) {
     let service = match &state.service {
-        Some(s) => s,
-        None => return, // No service, no loop
+        Some(s) => Arc::clone(s),
+        None => return,
     };
 
     loop {
@@ -136,7 +136,7 @@ async fn ping_loop<R: Runtime>(app: AppHandle<R>, state: Arc<AppState>) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let (service, error) = match PingService::new() {
-        Ok(s) => (Some(s), None),
+        Ok(s) => (Some(Arc::new(s)), None),
         Err(e) => (None, Some(e)),
     };
 
@@ -158,14 +158,9 @@ pub fn run() {
         .setup(move |app| {
             if let Some(state) = app.try_state::<AppState>() {
                 let handle = app.handle().clone();
-                let results_clone = Arc::clone(&state.results);
-                let settings_clone = Arc::clone(&state.settings);
-                let error_clone = Arc::clone(&state.error);
                 
-                // Since AppState is managed, it's already thread-safe.
-                // However, we need to pass it to the loop.
                 let state_arc = Arc::new(AppState {
-                    service: state.service.clone(), 
+                    service: state.service.as_ref().map(|s| Arc::clone(s)),
                     results: Arc::clone(&state.results),
                     settings: Arc::clone(&state.settings),
                     error: Arc::clone(&state.error),
