@@ -156,7 +156,7 @@ pub fn run() {
             let handle = app.handle().clone();
             let shared_clone = Arc::clone(&shared_for_setup);
 
-            tokio::spawn(async move {
+            tauri::async_runtime::spawn(async move {
                 // Initialize ICMP engine inside the async runtime
                 match PingService::new() {
                     Ok(s) => {
