@@ -41,7 +41,6 @@ impl Default for AppSettings {
     }
 }
 
-// Shared state passed around via Arc
 pub struct SharedState {
     pub service: Option<Arc<PingService>>,
     pub results: Arc<Mutex<HashMap<String, Vec<PingResult>>>>,
@@ -49,7 +48,6 @@ pub struct SharedState {
     pub error: Arc<Mutex<Option<String>>>,
 }
 
-// Thin wrapper for Tauri managed state
 pub struct AppState {
     pub inner: Arc<SharedState>,
 }
@@ -112,7 +110,7 @@ async fn update_settings(
 async fn ping_loop<R: Runtime>(app: AppHandle<R>, shared: Arc<SharedState>) {
     let service = match &shared.service {
         Some(s) => Arc::clone(s),
-        None => return, // 권한 없음 - 루프 종료
+        None => return,
     };
 
     loop {
@@ -151,14 +149,10 @@ pub fn run() {
 
     let shared_for_setup = Arc::clone(&shared);
 
-    let app_state = AppState {
-        inner: shared,
-    };
-
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_log::Builder::new().build())
-        .manage(app_state)
+        .manage(AppState { inner: shared })
         .setup(move |app| {
             let handle = app.handle().clone();
             let shared_clone = Arc::clone(&shared_for_setup);

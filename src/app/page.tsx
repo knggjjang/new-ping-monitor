@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import { Settings, Plus, Activity, Zap } from "lucide-react";
+import { Settings, Plus, Activity, Zap, AlertCircle } from "lucide-react";
 import PingCard from "@/components/PingCard";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -108,7 +108,7 @@ export default function Dashboard() {
             <span className="text-sm font-bold text-white/30 group-hover:text-white/60">Add New Target</span>
           </button>
         </div>
-      </div>
+      </main>
 
       {/* Footer / Stats */}
       <footer className="px-8 py-4 border-t border-white/5 flex justify-between items-center z-10">
