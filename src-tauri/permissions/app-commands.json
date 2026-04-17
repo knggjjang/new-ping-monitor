@@ -1,0 +1,13 @@
+{
+  "identifier": "app-commands",
+  "description": "Permissions for the custom app commands",
+  "commands": {
+    "allow": [
+      "get_ping_results",
+      "get_settings",
+      "update_settings",
+      "get_latest_release",
+      "get_engine_error"
+    ]
+  }
+}
