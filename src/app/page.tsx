@@ -10,6 +10,8 @@ import { useAppStore } from "@/store/useAppStore";
 export default function Dashboard() {
   const { settings, results, setResults, setSettings } = useAppStore();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [newTarget, setNewTarget] = useState({ name: "", host: "" });
   const [latestRelease, setLatestRelease] = useState<any>(null);
   const [engineError, setEngineError] = useState<string | null>(null);
 
@@ -38,8 +40,30 @@ export default function Dashboard() {
     };
   }, []);
 
+  const handleAddTarget = () => {
+    if (newTarget.name && newTarget.host) {
+      const updated = {
+        ...settings,
+        targets: [...settings.targets, newTarget],
+      };
+      setSettings(updated);
+      invoke("update_settings", { newSettings: updated });
+      setNewTarget({ name: "", host: "" });
+      setIsAddOpen(false);
+    }
+  };
+
+  const removeTarget = (host: string) => {
+    const updated = {
+      ...settings,
+      targets: settings.targets.filter(t => t.host !== host),
+    };
+    setSettings(updated);
+    invoke("update_settings", { newSettings: updated });
+  };
+
   return (
-    <div className="flex flex-col h-full bg-[#050505] text-white overflow-hidden relative">
+    <div className="flex flex-col h-full bg-[#050505]/80 text-white overflow-hidden relative backdrop-blur-xl">
       {/* Background Decorative Elements */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-neon-blue rounded-full blur-[120px] opacity-10" />
@@ -47,7 +71,7 @@ export default function Dashboard() {
       </div>
 
       {/* Header */}
-      <header className="flex justify-between items-center px-8 py-6 z-10">
+      <header data-tauri-drag-region className="flex justify-between items-center px-8 py-6 z-10 select-none">
         <div>
           <h1 className="text-3xl font-black tracking-tighter flex items-center gap-3">
             <Zap className="text-neon-blue fill-neon-blue/20" size={32} />
@@ -101,7 +125,10 @@ export default function Dashboard() {
           ))}
           
           {/* Add New Hook */}
-          <button className="glass border-dashed border-2 border-white/10 flex flex-col items-center justify-center p-8 rounded-2xl hover:border-neon-blue/40 hover:bg-neon-blue/5 transition-all group min-h-[200px]">
+          <button 
+            onClick={() => setIsAddOpen(true)}
+            className="glass border-dashed border-2 border-white/10 flex flex-col items-center justify-center p-8 rounded-2xl hover:border-neon-blue/40 hover:bg-neon-blue/5 transition-all group min-h-[200px]"
+          >
             <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
               <Plus size={24} className="text-white/40 group-hover:text-neon-blue" />
             </div>
@@ -109,6 +136,98 @@ export default function Dashboard() {
           </button>
         </div>
       </main>
+
+      {/* Add Target Modal */}
+      {isAddOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
+          <div className="glass w-full max-w-md p-8 rounded-3xl border border-white/10 space-y-6 animate-in zoom-in duration-200">
+            <h2 className="text-2xl font-black tracking-tighter">ADD NEW <span className="text-neon-blue">TARGET</span></h2>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">Target Name</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. My Server"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-neon-blue/50 transition-colors"
+                  value={newTarget.name}
+                  onChange={(e) => setNewTarget({...newTarget, name: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">IP or Domain</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. 192.168.0.1"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-neon-blue/50 transition-colors"
+                  value={newTarget.host}
+                  onChange={(e) => setNewTarget({...newTarget, host: e.target.value})}
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 pt-4">
+              <button 
+                onClick={() => setIsAddOpen(false)}
+                className="flex-1 px-6 py-3 rounded-xl font-bold text-white/40 hover:bg-white/5 transition-colors"
+              >
+                CANCEL
+              </button>
+              <button 
+                onClick={handleAddTarget}
+                className="flex-1 px-6 py-3 rounded-xl font-bold bg-neon-blue text-black hover:scale-[1.02] active:scale-[0.98] transition-all"
+              >
+                ADD TARGET
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Settings Modal */}
+      {isSettingsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
+          <div className="glass w-full max-w-md p-8 rounded-3xl border border-white/10 space-y-6 animate-in zoom-in duration-200">
+            <h2 className="text-2xl font-black tracking-tighter">APP <span className="text-neon-pink">SETTINGS</span></h2>
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">Polling Interval (ms)</label>
+                <input 
+                  type="number" 
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-neon-pink/50 transition-colors"
+                  value={settings.interval_ms}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value);
+                    const updated = { ...settings, interval_ms: val };
+                    setSettings(updated);
+                    invoke("update_settings", { newSettings: updated });
+                  }}
+                />
+              </div>
+              <div className="space-y-4">
+                <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">Manage Targets</label>
+                <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2">
+                  {settings.targets.map(t => (
+                    <div key={t.host} className="flex justify-between items-center p-3 bg-white/5 rounded-xl border border-white/5">
+                      <div className="text-xs font-bold">{t.name} <span className="text-white/30 ml-2">{t.host}</span></div>
+                      <button 
+                        onClick={() => removeTarget(t.host)}
+                        className="text-[10px] font-black text-neon-red hover:underline"
+                      >
+                        REMOVE
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <button 
+              onClick={() => setIsSettingsOpen(false)}
+              className="w-full px-6 py-4 rounded-xl font-bold bg-white/10 text-white hover:bg-white/20 transition-all"
+            >
+              CLOSE SETTINGS
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Footer / Stats */}
       <footer className="px-8 py-4 border-t border-white/5 flex justify-between items-center z-10">
@@ -132,7 +251,7 @@ export default function Dashboard() {
             </div>
           )}
           <div className="text-[10px] font-bold text-white/20 uppercase">
-            v0.1.0 • Antigravity AI
+            v0.1.7 • Antigravity AI
           </div>
         </div>
       </footer>
