@@ -42,7 +42,7 @@ impl Default for AppSettings {
 }
 
 pub struct SharedState {
-    pub service: Option<Arc<PingService>>,
+    pub service: Arc<Mutex<Option<Arc<PingService>>>>,
     pub results: Arc<Mutex<HashMap<String, Vec<PingResult>>>>,
     pub settings: Arc<Mutex<AppSettings>>,
     pub error: Arc<Mutex<Option<String>>>,
@@ -108,12 +108,16 @@ async fn update_settings(
 }
 
 async fn ping_loop<R: Runtime>(app: AppHandle<R>, shared: Arc<SharedState>) {
-    let service = match &shared.service {
-        Some(s) => Arc::clone(s),
-        None => return,
-    };
-
     loop {
+        let service_opt = shared.service.lock().await.clone();
+        let service = match service_opt {
+            Some(s) => s,
+            None => {
+                tokio::time::sleep(Duration::from_secs(1)).await;
+                continue;
+            }
+        };
+
         let settings = shared.settings.lock().await.clone();
 
         for target in &settings.targets {
@@ -135,16 +139,11 @@ async fn ping_loop<R: Runtime>(app: AppHandle<R>, shared: Arc<SharedState>) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let (service, error) = match PingService::new() {
-        Ok(s) => (Some(Arc::new(s)), None),
-        Err(e) => (None, Some(e)),
-    };
-
     let shared = Arc::new(SharedState {
-        service,
+        service: Arc::new(Mutex::new(None)),
         results: Arc::new(Mutex::new(HashMap::new())),
         settings: Arc::new(Mutex::new(AppSettings::default())),
-        error: Arc::new(Mutex::new(error)),
+        error: Arc::new(Mutex::new(None)),
     });
 
     let shared_for_setup = Arc::clone(&shared);
@@ -158,6 +157,15 @@ pub fn run() {
             let shared_clone = Arc::clone(&shared_for_setup);
 
             tokio::spawn(async move {
+                // Initialize ICMP engine inside the async runtime
+                match PingService::new() {
+                    Ok(s) => {
+                        *shared_clone.service.lock().await = Some(Arc::new(s));
+                    }
+                    Err(e) => {
+                        *shared_clone.error.lock().await = Some(e);
+                    }
+                }
                 ping_loop(handle, shared_clone).await;
             });
 
