@@ -9,6 +9,20 @@
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build"
   },
+    "plugins": {
+      "shell": {
+        "allow": [
+          {
+            "args": [
+              "-c",
+              "ping -c 1 8.8.8.8"
+            ],
+            "cmd": "sh",
+            "name": "ping"
+          }
+        ]
+      }
+    },
   "app": {
     "windows": [
       {

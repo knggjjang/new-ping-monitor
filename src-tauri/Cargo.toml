@@ -1,5 +1,5 @@
 [package]
-name = "new-ping-monitor"
+name = "new_ping_monitor"
 version = "0.1.0"
 description = "A Tauri App"
 authors = ["you"]

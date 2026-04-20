@@ -2098,7 +2098,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "new-ping-monitor"
+name = "new_debug_unreachable"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
+
+[[package]]
+name = "new_ping_monitor"
 version = "0.1.0"
 dependencies = [
  "chrono",
@@ -2115,12 +2121,6 @@ dependencies = [
  "tauri-plugin-shell",
  "tokio",
 ]
-
-[[package]]
-name = "new_debug_unreachable"
-version = "1.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
 
 [[package]]
 name = "no-std-net"
@@ -2853,7 +2853,7 @@ dependencies = [
  "once_cell",
  "socket2",
  "tracing",
- "windows-sys 0.52.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]

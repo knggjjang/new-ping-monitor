@@ -1,7 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use app_lib::{AppState, AppSettings, ReleaseInfo};
+use app_lib::{AppState, AppSettings, ReleaseInfo, save_settings_to_file};
 use app_lib::ping_service::PingResult;
 use std::collections::HashMap;
 
@@ -49,7 +49,15 @@ async fn update_settings(
     state: tauri::State<'_, AppState>,
     new_settings: AppSettings,
 ) -> Result<(), String> {
-    *state.inner.settings.lock().await = new_settings;
+    // Update memory state
+    {
+        let mut settings = state.inner.settings.lock().await;
+        *settings = new_settings.clone();
+    }
+    
+    // Persist to disk
+    save_settings_to_file(&new_settings, &state.inner.config_dir)?;
+    
     Ok(())
 }
 
@@ -57,13 +65,17 @@ fn main() {
   tauri::Builder::default()
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_log::Builder::new().build())
-    .invoke_handler(tauri::generate_handler![
-      get_ping_results,
-      get_settings,
-      update_settings,
-      get_latest_release,
-      get_engine_error
-    ])
+    // HACK: Use a simple, rule-compliant name "monitor" for the plugin
+    .plugin(tauri::plugin::Builder::<tauri::Wry>::new("monitor")
+      .invoke_handler(tauri::generate_handler![
+        get_ping_results,
+        get_settings,
+        update_settings,
+        get_latest_release,
+        get_engine_error
+      ])
+      .build()
+    )
     .setup(|app| {
       app_lib::setup(app);
       Ok(())
