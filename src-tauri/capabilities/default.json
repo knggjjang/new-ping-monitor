@@ -9,6 +9,7 @@
     "core:default",
     "shell:default",
     "log:default",
+    "window-state:default",
     "core:window:allow-close",
     "core:window:allow-minimize",
     "core:window:allow-maximize",

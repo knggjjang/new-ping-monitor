@@ -225,7 +225,7 @@ export default function Dashboard() {
           <div className="w-px h-3 bg-white/10" />
           <span className="text-[10px] font-bold text-white/40 uppercase">{settings?.Targets?.length || 0}개 대상 모니터링 중</span>
         </div>
-        <div className="text-[10px] font-bold text-white/20 uppercase">v0.2.3 • Antigravity AI</div>
+        <div className="text-[10px] font-bold text-white/20 uppercase">v0.2.4 • Antigravity AI</div>
       </footer>
     </div>
   );

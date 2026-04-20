@@ -194,6 +194,7 @@ fn get_latest_release() -> serde_json::Value {
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .setup(|app| {
             let initial_settings = load_settings_from_file(&app.handle());
             let state = Arc::new(AppState {
