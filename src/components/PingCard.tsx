@@ -5,7 +5,7 @@ import { Area, AreaChart, ResponsiveContainer, YAxis } from "recharts";
 import { Activity, ShieldCheck, ShieldAlert } from "lucide-react";
 
 interface PingResult {
-  ip: String;
+  host: string;
   latency: number | null;
   status: boolean;
   timestamp: string;
@@ -26,7 +26,7 @@ export default function PingCard({ name, host, results, colors }: PingCardProps)
   const isOnline = latest?.status ?? false;
   const currentLatency = latest?.latency ?? 0;
 
-  // Prepare data for the chart
+  // 차트 데이터 준비
   const data = results.map((r, i) => ({
     value: r.latency ?? 0,
     index: i,
@@ -48,10 +48,10 @@ export default function PingCard({ name, host, results, colors }: PingCardProps)
 
       <div className="flex items-baseline gap-2 mb-6">
         <span className={`text-3xl font-black ${isOnline ? 'neon-text-green' : 'neon-text-red'}`}>
-          {isOnline ? `${currentLatency}ms` : "OFFLINE"}
+          {isOnline ? `${currentLatency}ms` : "연결 안됨"}
         </span>
         <span className="text-[10px] font-bold text-white/20 tracking-widest uppercase">
-          Latency
+          지연시간
         </span>
       </div>
 

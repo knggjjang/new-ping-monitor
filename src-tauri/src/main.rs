@@ -8,6 +8,7 @@ use tauri::{AppHandle, Manager, Runtime};
 use tokio::time::sleep;
 use surge_ping::{Client, Config, IcmpPacket, PingIdentifier, PingSequence};
 use std::net::IpAddr;
+use tauri::Emitter;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "PascalCase")]
@@ -28,15 +29,16 @@ struct AppSettings {
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "PascalCase")]
 struct PingResult {
-    name: String,
     host: String,
     latency: Option<u64>,
-    status: String,
+    status: bool,
+    timestamp: String,
 }
 
 struct AppState {
     settings: Arc<Mutex<AppSettings>>,
-    results: Arc<Mutex<HashMap<String, PingResult>>>,
+    results: Arc<Mutex<HashMap<String, Vec<PingResult>>>>,
+    engine_error: Arc<Mutex<Option<String>>>,
 }
 
 fn get_config_path<R: Runtime>(app: &AppHandle<R>) -> std::path::PathBuf {
@@ -60,7 +62,7 @@ fn load_settings_from_file<R: Runtime>(app: &AppHandle<R>) -> AppSettings {
             PingTarget { name: "Google".to_string(), host: "8.8.8.8".to_string() },
             PingTarget { name: "Cloudflare".to_string(), host: "1.1.1.1".to_string() },
         ],
-        interval: 1,
+        interval: 2,
         success_color: "#4ade80".to_string(),
         failure_color: "#f87171".to_string(),
     }
@@ -73,14 +75,17 @@ fn save_settings_to_file<R: Runtime>(app: &AppHandle<R>, settings: &AppSettings)
     }
 }
 
-async fn ping_loop<R: Runtime>(_app: AppHandle<R>, state: Arc<AppState>) {
-    // Enhanced error handling to prevent silent app crashes on start
+async fn ping_loop<R: Runtime>(app: AppHandle<R>, state: Arc<AppState>) {
     let client_result = Client::new(&Config::default());
     let client = match client_result {
         Ok(c) => c,
         Err(_) => {
-            // If raw socket fails (e.g. no permission), don't crash, just log and wait
-            eprintln!("Failed to create ping client. Check raw socket permissions.");
+            let err_msg = "핑 클라이언트를 생성하지 못했습니다. 관리자 권한(Raw Socket)을 확인하세요.";
+            {
+                let mut err = state.engine_error.lock().unwrap();
+                *err = Some(err_msg.to_string());
+            }
+            eprintln!("{}", err_msg);
             return;
         }
     };
@@ -93,9 +98,10 @@ async fn ping_loop<R: Runtime>(_app: AppHandle<R>, state: Arc<AppState>) {
             s.targets.clone()
         };
 
+        let mut current_results = HashMap::new();
+
         for target in targets {
             let host = target.host.clone();
-            let name = target.name.clone();
             
             let result = match host.parse::<IpAddr>() {
                 Ok(addr) => {
@@ -105,33 +111,41 @@ async fn ping_loop<R: Runtime>(_app: AppHandle<R>, state: Arc<AppState>) {
                     match pinger.ping(PingSequence(0), &payload).await {
                         Ok((IcmpPacket::V4(_packet), duration)) => {
                             PingResult {
-                                name: name.clone(),
                                 host: host.clone(),
                                 latency: Some(duration.as_millis() as u64),
-                                status: "Success".to_string(),
+                                status: true,
+                                timestamp: chrono::Local::now().format("%H:%M:%S").to_string(),
                             }
                         }
                         _ => PingResult {
-                            name: name.clone(),
                             host: host.clone(),
                             latency: None,
-                            status: "Failure".to_string(),
+                            status: false,
+                            timestamp: chrono::Local::now().format("%H:%M:%S").to_string(),
                         },
                     }
                 }
                 Err(_) => PingResult {
-                    name: name.clone(),
                     host: host.clone(),
                     latency: None,
-                    status: "Invalid Host".to_string(),
+                    status: false,
+                    timestamp: chrono::Local::now().format("%H:%M:%S").to_string(),
                 },
             };
 
             {
-                let mut res = state.results.lock().unwrap();
-                res.insert(host.clone(), result);
+                let mut res_store = state.results.lock().unwrap();
+                let history = res_store.entry(host.clone()).or_insert_with(Vec::new);
+                history.push(result.clone());
+                if history.len() > 50 {
+                    history.remove(0);
+                }
+                current_results.insert(host.clone(), history.clone());
             }
         }
+
+        // Emit update to frontend
+        let _ = app.emit("ping-update", &current_results);
 
         let interval = {
             let s = state.settings.lock().unwrap();
@@ -143,9 +157,9 @@ async fn ping_loop<R: Runtime>(_app: AppHandle<R>, state: Arc<AppState>) {
 }
 
 #[tauri::command]
-fn get_ping_results(state: tauri::State<'_, Arc<AppState>>) -> Vec<PingResult> {
+fn get_ping_results(state: tauri::State<'_, Arc<AppState>>) -> HashMap<String, Vec<PingResult>> {
     let results = state.results.lock().unwrap();
-    results.values().cloned().collect()
+    results.clone()
 }
 
 #[tauri::command]
@@ -164,6 +178,20 @@ fn update_settings(
     *s = new_settings;
 }
 
+#[tauri::command]
+fn get_engine_error(state: tauri::State<'_, Arc<AppState>>) -> Option<String> {
+    state.engine_error.lock().unwrap().clone()
+}
+
+#[tauri::command]
+fn get_latest_release() -> serde_json::Value {
+    // Return current version as "latest" for now
+    serde_json::json!({
+        "tag_name": "v0.2.2",
+        "name": "v0.2.2 Stable"
+    })
+}
+
 fn main() {
     tauri::Builder::default()
         .setup(|app| {
@@ -171,6 +199,7 @@ fn main() {
             let state = Arc::new(AppState {
                 settings: Arc::new(Mutex::new(initial_settings)),
                 results: Arc::new(Mutex::new(HashMap::new())),
+                engine_error: Arc::new(Mutex::new(None)),
             });
             
             app.manage(state.clone());
@@ -185,7 +214,9 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             get_ping_results,
             get_settings,
-            update_settings
+            update_settings,
+            get_engine_error,
+            get_latest_release
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

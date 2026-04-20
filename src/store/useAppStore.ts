@@ -8,12 +8,13 @@ interface Target {
 
 interface AppSettings {
   targets: Target[];
-  interval_ms: number;
-  colors: Record<string, string>;
+  interval: number;
+  success_color: string;
+  failure_color: string;
 }
 
 interface PingResult {
-  ip: string;
+  host: string;
   latency: number | null;
   status: boolean;
   timestamp: string;
@@ -32,14 +33,12 @@ export const useAppStore = create<AppState>()(
     (set) => ({
       settings: {
         targets: [
-          { name: "Google DNS", host: "8.8.8.8" },
-          { name: "Cloudflare DNS", host: "1.1.1.1" },
+          { name: "구글 DNS", host: "8.8.8.8" },
+          { name: "클라우드플레어 DNS", host: "1.1.1.1" },
         ],
-        interval_ms: 2000,
-        colors: {
-          online: "#00E676",
-          offline: "#FF1744",
-        },
+        interval: 2,
+        success_color: "#4ade80",
+        failure_color: "#f87171",
       },
       results: {},
       setSettings: (settings) => set({ settings }),
