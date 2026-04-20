@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import { Settings, Plus, Activity, Zap, AlertCircle } from "lucide-react";
+import { Settings, Plus, Activity, Zap, AlertCircle, Download, Upload, Check } from "lucide-react";
 import PingCard from "@/components/PingCard";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -15,6 +15,7 @@ export default function Dashboard() {
   const [latestRelease, setLatestRelease] = useState<any>(null);
   const [engineError, setEngineError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [actionMessage, setActionMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -48,6 +49,13 @@ export default function Dashboard() {
     };
   }, []);
 
+  useEffect(() => {
+    if (actionMessage) {
+      const timer = setTimeout(() => setActionMessage(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [actionMessage]);
+
   if (!mounted) return null;
 
   const handleAddTarget = () => {
@@ -70,6 +78,29 @@ export default function Dashboard() {
     };
     setSettings(updated);
     invoke("update_settings", { newSettings: updated });
+  };
+
+  const handleImport = async () => {
+    try {
+      const newSettings: any = await invoke("import_settings");
+      setSettings(newSettings);
+      setActionMessage({ text: "설정을 성공적으로 불러왔습니다.", type: 'success' });
+    } catch (e) {
+      if (e !== "취소됨") {
+        setActionMessage({ text: `불러오기 실패: ${e}`, type: 'error' });
+      }
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      await invoke("export_settings");
+      setActionMessage({ text: "설정을 성공적으로 내보냈습니다.", type: 'success' });
+    } catch (e) {
+      if (e !== "취소됨") {
+        setActionMessage({ text: `내보내기 실패: ${e}`, type: 'error' });
+      }
+    }
   };
 
   return (
@@ -103,6 +134,17 @@ export default function Dashboard() {
 
       {/* 메인 콘텐츠 */}
       <main className="flex-1 overflow-y-auto p-4 space-y-4 z-10">
+        {actionMessage && (
+          <div className={`fixed top-24 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-2xl border backdrop-blur-xl animate-in slide-in-from-top duration-300 ${
+            actionMessage.type === 'success' ? 'bg-neon-green/10 border-neon-green/30 text-neon-green' : 'bg-neon-red/10 border-neon-red/30 text-neon-red'
+          }`}>
+            <div className="flex items-center gap-3">
+              {actionMessage.type === 'success' ? <Check size={18} /> : <AlertCircle size={18} />}
+              <span className="text-sm font-bold">{actionMessage.text}</span>
+            </div>
+          </div>
+        )}
+
         {engineError && (
           <div className="p-4 rounded-xl bg-neon-red/10 border border-neon-red/30 flex items-center justify-between animate-pulse mb-4">
             <div className="flex items-center gap-3">
@@ -200,7 +242,7 @@ export default function Dashboard() {
               </div>
               <div className="space-y-4">
                 <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">대상 리스트 관리</label>
-                <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+                <div className="space-y-2 max-h-[150px] overflow-y-auto pr-2 custom-scrollbar">
                   {settings.Targets.map(t => (
                     <div key={t.Host} className="flex justify-between items-center p-3 bg-white/5 rounded-xl border border-white/5">
                       <div className="text-xs font-bold">{t.Name} <span className="text-white/30 ml-2 font-mono">{t.Host}</span></div>
@@ -209,8 +251,26 @@ export default function Dashboard() {
                   ))}
                 </div>
               </div>
+              
+              {/* 가져오기 / 내보내기 버튼 추가 */}
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <button 
+                  onClick={handleImport}
+                  className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-xs font-bold hover:bg-white/10 transition-all"
+                >
+                  <Download size={14} className="text-neon-blue" />
+                  설정 불러오기
+                </button>
+                <button 
+                  onClick={handleExport}
+                  className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-xs font-bold hover:bg-white/10 transition-all"
+                >
+                  <Upload size={14} className="text-neon-pink" />
+                  설정 내보내기
+                </button>
+              </div>
             </div>
-            <button onClick={() => setIsSettingsOpen(false)} className="w-full px-6 py-4 rounded-xl font-bold bg-white/10 text-white">설정 닫기</button>
+            <button onClick={() => setIsSettingsOpen(false)} className="w-full px-6 py-4 rounded-xl font-bold bg-white/10 text-white mt-4">설정 닫기</button>
           </div>
         </div>
       )}
@@ -225,7 +285,7 @@ export default function Dashboard() {
           <div className="w-px h-3 bg-white/10" />
           <span className="text-[10px] font-bold text-white/40 uppercase">{settings?.Targets?.length || 0}개 대상 모니터링 중</span>
         </div>
-        <div className="text-[10px] font-bold text-white/20 uppercase">v0.2.4 • Antigravity AI</div>
+        <div className="text-[10px] font-bold text-white/20 uppercase">v0.2.5 • Antigravity AI</div>
       </footer>
     </div>
   );

@@ -187,14 +187,67 @@ fn get_engine_error(state: tauri::State<'_, Arc<AppState>>) -> Option<String> {
 fn get_latest_release() -> serde_json::Value {
     // Return current version as "latest" for now
     serde_json::json!({
-        "tag_name": "v0.2.2",
-        "name": "v0.2.2 Stable"
+        "tag_name": "v0.2.5",
+        "name": "v0.2.5 Stable"
     })
+}
+
+#[tauri::command]
+async fn import_settings(
+    app: AppHandle,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<AppSettings, String> {
+    use tauri_plugin_dialog::DialogExt;
+    
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    
+    app.dialog().file().add_filter("JSON", &["json"]).pick_file(move |file_path| {
+        let _ = tx.send(file_path);
+    });
+    
+    let file_path = rx.await.map_err(|_| "대화상자 응답을 받지 못했습니다.")?.ok_or("취소됨")?;
+    let path = file_path.into_path().map_err(|_| "유효하지 않은 경로입니다.")?;
+    let content = std::fs::read_to_string(path).map_err(|e| format!("파일을 읽지 못했습니다: {}", e))?;
+    let settings: AppSettings = serde_json::from_str(&content).map_err(|e| format!("잘못된 형식의 설정 파일입니다: {}", e))?;
+    
+    save_settings_to_file(&app, &settings);
+    let mut s = state.settings.lock().unwrap();
+    *s = settings.clone();
+    
+    Ok(settings)
+}
+
+#[tauri::command]
+async fn export_settings(
+    app: AppHandle,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<(), String> {
+    use tauri_plugin_dialog::DialogExt;
+    
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    let settings = state.settings.lock().unwrap().clone();
+    
+    app.dialog()
+        .file()
+        .add_filter("JSON", &["json"])
+        .set_file_name("settings.json")
+        .save_file(move |file_path| {
+            let _ = tx.send(file_path);
+        });
+    
+    let file_path = rx.await.map_err(|_| "대화상자 응답을 받지 못했습니다.")?.ok_or("취소됨")?;
+    let path = file_path.into_path().map_err(|_| "유효하지 않은 경로입니다.")?;
+    let content = serde_json::to_string_pretty(&settings).map_err(|e| format!("데이터 변환 실패: {}", e))?;
+    std::fs::write(path, content).map_err(|e| format!("파일 저장 실패: {}", e))?;
+    
+    Ok(())
 }
 
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             let initial_settings = load_settings_from_file(&app.handle());
             let state = Arc::new(AppState {
@@ -217,7 +270,9 @@ fn main() {
             get_settings,
             update_settings,
             get_engine_error,
-            get_latest_release
+            get_latest_release,
+            import_settings,
+            export_settings
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
