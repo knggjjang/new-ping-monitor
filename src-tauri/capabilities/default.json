@@ -8,6 +8,8 @@
   "permissions": [
     "core:default",
     "shell:default",
-    "log:default"
+    "log:default",
+    "window:allow-all",
+    "app-commands"
   ]
 }

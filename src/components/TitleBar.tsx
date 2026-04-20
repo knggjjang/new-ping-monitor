@@ -14,7 +14,7 @@ export default function TitleBar() {
   return (
     <div data-tauri-drag-region className="titlebar select-none">
       <div className="flex-1 pl-4 text-xs font-semibold text-white/50 pointer-events-none">
-        NEW PING MONITOR
+        PING MONITOR SYSTEM
       </div>
       <div className="flex">
         <div

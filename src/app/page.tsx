@@ -75,7 +75,7 @@ export default function Dashboard() {
         <div>
           <h1 className="text-3xl font-black tracking-tighter flex items-center gap-3">
             <Zap className="text-neon-blue fill-neon-blue/20" size={32} />
-            NETWORK <span className="text-white/20">DASHBOARD</span>
+            Jerom's NETWORK <span className="text-white/20">DASHBOARD</span>
           </h1>
           <p className="text-[10px] uppercase tracking-[0.3em] text-white/40 mt-1 font-bold">
             Real-time Latency Monitoring • Cross-Platform
@@ -202,9 +202,20 @@ export default function Dashboard() {
                   }}
                 />
               </div>
-              <div className="space-y-4">
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
                 <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">Manage Targets</label>
-                <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2">
+                <button 
+                  onClick={() => {
+                    setIsSettingsOpen(false);
+                    setIsAddOpen(true);
+                  }}
+                  className="text-[10px] font-black text-neon-blue hover:underline"
+                >
+                  + ADD NEW
+                </button>
+              </div>
+              <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2">
                   {settings.targets.map(t => (
                     <div key={t.host} className="flex justify-between items-center p-3 bg-white/5 rounded-xl border border-white/5">
                       <div className="text-xs font-bold">{t.name} <span className="text-white/30 ml-2">{t.host}</span></div>
