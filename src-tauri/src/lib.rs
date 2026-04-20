@@ -1,11 +1,11 @@
-mod ping_service;
+pub mod ping_service;
 
 use crate::ping_service::{PingResult, PingService};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tauri::{AppHandle, Runtime, Emitter};
+use tauri::{App, AppHandle, Runtime, Emitter, Manager};
 use std::time::Duration;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -59,54 +59,6 @@ pub struct ReleaseInfo {
     pub published_at: String,
 }
 
-#[tauri::command]
-async fn get_latest_release() -> Result<ReleaseInfo, String> {
-    let client = reqwest::Client::builder()
-        .user_agent("new-ping-monitor")
-        .timeout(Duration::from_secs(10))
-        .build()
-        .map_err(|e| e.to_string())?;
-
-    let res = client
-        .get("https://api.github.com/repos/knggjjang/new-ping-monitor/releases/latest")
-        .send()
-        .await
-        .map_err(|e| e.to_string())?;
-
-    let release: ReleaseInfo = res.json().await.map_err(|e| e.to_string())?;
-    Ok(release)
-}
-
-#[tauri::command]
-async fn get_ping_results(
-    state: tauri::State<'_, AppState>,
-) -> Result<HashMap<String, Vec<PingResult>>, String> {
-    Ok(state.inner.results.lock().await.clone())
-}
-
-#[tauri::command]
-async fn get_settings(
-    state: tauri::State<'_, AppState>,
-) -> Result<AppSettings, String> {
-    Ok(state.inner.settings.lock().await.clone())
-}
-
-#[tauri::command]
-async fn get_engine_error(
-    state: tauri::State<'_, AppState>,
-) -> Result<Option<String>, String> {
-    Ok(state.inner.error.lock().await.clone())
-}
-
-#[tauri::command]
-async fn update_settings(
-    state: tauri::State<'_, AppState>,
-    new_settings: AppSettings,
-) -> Result<(), String> {
-    *state.inner.settings.lock().await = new_settings;
-    Ok(())
-}
-
 async fn ping_loop<R: Runtime>(app: AppHandle<R>, shared: Arc<SharedState>) {
     loop {
         let service_opt = shared.service.lock().await.clone();
@@ -137,8 +89,7 @@ async fn ping_loop<R: Runtime>(app: AppHandle<R>, shared: Arc<SharedState>) {
     }
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
+pub fn setup<R: Runtime>(app: &mut App<R>) {
     let shared = Arc::new(SharedState {
         service: Arc::new(Mutex::new(None)),
         results: Arc::new(Mutex::new(HashMap::new())),
@@ -147,37 +98,20 @@ pub fn run() {
     });
 
     let shared_for_setup = Arc::clone(&shared);
+    app.manage(AppState { inner: shared });
 
-    tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_log::Builder::new().build())
-        .manage(AppState { inner: shared })
-        .setup(move |app| {
-            let handle = app.handle().clone();
-            let shared_clone = Arc::clone(&shared_for_setup);
+    let handle = app.handle().clone();
+    let shared_clone = Arc::clone(&shared_for_setup);
 
-            tauri::async_runtime::spawn(async move {
-                // Initialize ICMP engine inside the async runtime
-                match PingService::new() {
-                    Ok(s) => {
-                        *shared_clone.service.lock().await = Some(Arc::new(s));
-                    }
-                    Err(e) => {
-                        *shared_clone.error.lock().await = Some(e);
-                    }
-                }
-                ping_loop(handle, shared_clone).await;
-            });
-
-            Ok(())
-        })
-        .invoke_handler(tauri::generate_handler![
-            get_ping_results,
-            get_settings,
-            update_settings,
-            get_latest_release,
-            get_engine_error
-        ])
-        .run(tauri::generate_context!())
-        .expect("Tauri 실행 중 치명적인 오류가 발생했습니다.");
+    tauri::async_runtime::spawn(async move {
+        match PingService::new() {
+            Ok(s) => {
+                *shared_clone.service.lock().await = Some(Arc::new(s));
+            }
+            Err(e) => {
+                *shared_clone.error.lock().await = Some(e);
+            }
+        }
+        ping_loop(handle, shared_clone).await;
+    });
 }

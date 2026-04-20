@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "new-ping-monitor",
+  "productName": "NewPingMonitor",
   "version": "0.2.0",
   "identifier": "com.jyyun.newpingmonitor",
   "build": {
