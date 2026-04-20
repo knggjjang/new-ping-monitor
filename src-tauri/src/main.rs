@@ -74,7 +74,17 @@ fn save_settings_to_file<R: Runtime>(app: &AppHandle<R>, settings: &AppSettings)
 }
 
 async fn ping_loop<R: Runtime>(_app: AppHandle<R>, state: Arc<AppState>) {
-    let client = Client::new(&Config::default()).unwrap();
+    // Enhanced error handling to prevent silent app crashes on start
+    let client_result = Client::new(&Config::default());
+    let client = match client_result {
+        Ok(c) => c,
+        Err(_) => {
+            // If raw socket fails (e.g. no permission), don't crash, just log and wait
+            eprintln!("Failed to create ping client. Check raw socket permissions.");
+            return;
+        }
+    };
+    
     let payload = [0u8; 56];
     
     loop {
