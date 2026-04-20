@@ -16,11 +16,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: "macos-latest" # for Arm64 (M1/M2)
+          - platform: "macos-latest"
             args: "--target aarch64-apple-darwin"
-          - platform: "windows-latest" # for Windows
+          - platform: "windows-latest"
             args: ""
-          - platform: "ubuntu-22.04" # for Linux
+          - platform: "ubuntu-22.04"
             args: ""
 
     runs-on: ${{ matrix.platform }}
@@ -51,9 +51,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: v__VERSION__
-          releaseName: "New Ping Monitor v__VERSION__"
-          releaseBody: "New Ping Monitor - Premium Cross-Platform Network Dashboard"
+          tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          releaseName: "New Ping Monitor ${{ github.ref_name }}"
+          releaseBody: "New Ping Monitor - 고성능 크로스 플랫폼 네트워크 대시보드"
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
