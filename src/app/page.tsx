@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import { Settings, Plus, Activity, Zap, AlertCircle, Download, Upload, Check } from "lucide-react";
+import { Settings, Plus, Zap, AlertCircle, Download, Upload, Check, GripVertical } from "lucide-react";
+import { Reorder, AnimatePresence } from "framer-motion";
 import PingCard from "@/components/PingCard";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -80,6 +81,15 @@ export default function Dashboard() {
     invoke("update_settings", { newSettings: updated });
   };
 
+  const handleReorder = (newOrder: any[]) => {
+    const updated = {
+      ...settings,
+      Targets: newOrder,
+    };
+    setSettings(updated);
+    invoke("update_settings", { newSettings: updated });
+  };
+
   const handleImport = async () => {
     try {
       const newSettings: any = await invoke("import_settings");
@@ -119,7 +129,7 @@ export default function Dashboard() {
             뉴 핑 모니터 <span className="text-white/20">대시보드</span>
           </h1>
           <p className="text-[10px] uppercase tracking-[0.3em] text-white/40 mt-1 font-bold">
-            실시간 네트워크 지연시간 모니터링 • 크로스 플랫폼
+            드래그하여 순서 변경 가능 • 실시간 모니터링
           </p>
         </div>
         <div className="flex gap-3">
@@ -134,16 +144,18 @@ export default function Dashboard() {
 
       {/* 메인 콘텐츠 */}
       <main className="flex-1 overflow-y-auto p-4 space-y-4 z-10">
-        {actionMessage && (
-          <div className={`fixed top-24 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-2xl border backdrop-blur-xl animate-in slide-in-from-top duration-300 ${
-            actionMessage.type === 'success' ? 'bg-neon-green/10 border-neon-green/30 text-neon-green' : 'bg-neon-red/10 border-neon-red/30 text-neon-red'
-          }`}>
-            <div className="flex items-center gap-3">
-              {actionMessage.type === 'success' ? <Check size={18} /> : <AlertCircle size={18} />}
-              <span className="text-sm font-bold">{actionMessage.text}</span>
+        <AnimatePresence>
+          {actionMessage && (
+            <div className={`fixed top-24 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-2xl border backdrop-blur-xl animate-in slide-in-from-top duration-300 ${
+              actionMessage.type === 'success' ? 'bg-neon-green/10 border-neon-green/30 text-neon-green' : 'bg-neon-red/10 border-neon-red/30 text-neon-red'
+            }`}>
+              <div className="flex items-center gap-3">
+                {actionMessage.type === 'success' ? <Check size={18} /> : <AlertCircle size={18} />}
+                <span className="text-sm font-bold">{actionMessage.text}</span>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </AnimatePresence>
 
         {engineError && (
           <div className="p-4 rounded-xl bg-neon-red/10 border border-neon-red/30 flex items-center justify-between animate-pulse mb-4">
@@ -158,18 +170,38 @@ export default function Dashboard() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* 카드 그리드 - Reorder 적용 */}
+        <Reorder.Group 
+          axis="y" 
+          values={settings.Targets} 
+          onReorder={handleReorder}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+        >
           {settings?.Targets?.map((target) => (
-            <PingCard
-              key={target.Host}
-              name={target.Name}
-              host={target.Host}
-              results={results[target.Host] || []}
-              colors={{
-                online: settings.SuccessColor,
-                offline: settings.FailureColor,
-              }}
-            />
+            <Reorder.Item 
+              key={target.Host} 
+              value={target}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              whileDrag={{ scale: 1.05, zIndex: 50, cursor: "grabbing" }}
+              className="relative group"
+            >
+              {/* 드래그 핸들 (선택 사항 - 여기서는 카드 전체가 드래그 가능) */}
+              <div className="absolute top-4 left-4 z-20 opacity-0 group-hover:opacity-30 transition-opacity cursor-grab">
+                <GripVertical size={16} />
+              </div>
+
+              <PingCard
+                name={target.Name}
+                host={target.Host}
+                results={results[target.Host] || []}
+                colors={{
+                  online: settings.SuccessColor,
+                  offline: settings.FailureColor,
+                }}
+              />
+            </Reorder.Item>
           ))}
           
           <button 
@@ -181,7 +213,7 @@ export default function Dashboard() {
             </div>
             <span className="text-sm font-bold text-white/30 group-hover:text-white/60">새 모니터링 대상 추가</span>
           </button>
-        </div>
+        </Reorder.Group>
       </main>
 
       {/* 타겟 추가 모달 */}
@@ -252,7 +284,6 @@ export default function Dashboard() {
                 </div>
               </div>
               
-              {/* 가져오기 / 내보내기 버튼 추가 */}
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <button 
                   onClick={handleImport}
@@ -285,7 +316,7 @@ export default function Dashboard() {
           <div className="w-px h-3 bg-white/10" />
           <span className="text-[10px] font-bold text-white/40 uppercase">{settings?.Targets?.length || 0}개 대상 모니터링 중</span>
         </div>
-        <div className="text-[10px] font-bold text-white/20 uppercase">v0.2.5 • Antigravity AI</div>
+        <div className="text-[10px] font-bold text-white/20 uppercase">v0.2.6 • Antigravity AI</div>
       </footer>
     </div>
   );
