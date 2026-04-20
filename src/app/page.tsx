@@ -11,26 +11,34 @@ export default function Dashboard() {
   const { settings, results, setResults, setSettings } = useAppStore();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [newTarget, setNewTarget] = useState({ name: "", host: "" });
+  const [newTarget, setNewTarget] = useState({ Name: "", Host: "" });
   const [latestRelease, setLatestRelease] = useState<any>(null);
   const [engineError, setEngineError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // 초기 로드
-    invoke("get_settings").then((s: any) => setSettings(s));
-    invoke("get_ping_results").then((r: any) => setResults(r));
+    setMounted(true);
     
-    // 엔진 오류 체크 (권한 문제 등)
+    // 초기 데이터 로드
+    invoke("get_settings").then((s: any) => {
+      if (s) setSettings(s);
+    });
+    
+    invoke("get_ping_results").then((r: any) => {
+      if (r) setResults(r);
+    });
+    
+    // 엔진 오류 체크
     invoke("get_engine_error").then((err: any) => {
       if (err) setEngineError(err);
     });
 
-    // 최신 릴리즈 정보 가져오기
+    // 최신 릴리즈 정보
     invoke("get_latest_release")
       .then((res: any) => setLatestRelease(res))
-      .catch((err) => console.error("릴리즈 정보를 가져오지 못했습니다:", err));
+      .catch((err) => console.error("릴리즈 정보 로드 실패:", err));
 
-    // Rust 백엔드로부터 실시간 업데이트 수신
+    // 실시간 업데이트 수신
     const unlisten = listen("ping-update", (event: any) => {
       setResults(event.payload as any);
     });
@@ -40,15 +48,17 @@ export default function Dashboard() {
     };
   }, []);
 
+  if (!mounted) return null;
+
   const handleAddTarget = () => {
-    if (newTarget.name && newTarget.host) {
+    if (newTarget.Name && newTarget.Host) {
       const updated = {
         ...settings,
-        targets: [...settings.targets, newTarget],
+        Targets: [...settings.Targets, newTarget],
       };
       setSettings(updated);
       invoke("update_settings", { newSettings: updated });
-      setNewTarget({ name: "", host: "" });
+      setNewTarget({ Name: "", Host: "" });
       setIsAddOpen(false);
     }
   };
@@ -56,7 +66,7 @@ export default function Dashboard() {
   const removeTarget = (host: string) => {
     const updated = {
       ...settings,
-      targets: settings.targets.filter(t => t.host !== host),
+      Targets: settings.Targets.filter(t => t.Host !== host),
     };
     setSettings(updated);
     invoke("update_settings", { newSettings: updated });
@@ -64,7 +74,7 @@ export default function Dashboard() {
 
   return (
     <div className="flex flex-col h-full bg-[#050505]/80 text-white overflow-hidden relative backdrop-blur-xl">
-      {/* 배경 장식 요소 */}
+      {/* 배경 장식 */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-neon-blue rounded-full blur-[120px] opacity-10" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-neon-pink rounded-full blur-[120px] opacity-10" />
@@ -93,7 +103,6 @@ export default function Dashboard() {
 
       {/* 메인 콘텐츠 */}
       <main className="flex-1 overflow-y-auto p-4 space-y-4 z-10">
-        {/* 오류 알림 */}
         {engineError && (
           <div className="p-4 rounded-xl bg-neon-red/10 border border-neon-red/30 flex items-center justify-between animate-pulse mb-4">
             <div className="flex items-center gap-3">
@@ -103,30 +112,24 @@ export default function Dashboard() {
                 <p className="text-xs text-neon-red/80">{engineError}</p>
               </div>
             </div>
-            <button 
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 rounded-lg bg-neon-red/20 text-xs font-bold hover:bg-neon-red/30 transition-colors"
-            >
-              다시 시도
-            </button>
+            <button onClick={() => window.location.reload()} className="px-4 py-2 rounded-lg bg-neon-red/20 text-xs font-bold">다시 시도</button>
           </div>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {settings.targets.map((target) => (
+          {settings?.Targets?.map((target) => (
             <PingCard
-              key={target.host}
-              name={target.name}
-              host={target.host}
-              results={results[target.host] || []}
+              key={target.Host}
+              name={target.Name}
+              host={target.Host}
+              results={results[target.Host] || []}
               colors={{
-                online: settings.success_color,
-                offline: settings.failure_color,
+                online: settings.SuccessColor,
+                offline: settings.FailureColor,
               }}
             />
           ))}
           
-          {/* 새 타겟 추가 버튼 */}
           <button 
             onClick={() => setIsAddOpen(true)}
             className="glass border-dashed border-2 border-white/10 flex flex-col items-center justify-center p-8 rounded-2xl hover:border-neon-blue/40 hover:bg-neon-blue/5 transition-all group min-h-[200px]"
@@ -151,34 +154,24 @@ export default function Dashboard() {
                   type="text" 
                   placeholder="예: 내 서버"
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-neon-blue/50 transition-colors"
-                  value={newTarget.name}
-                  onChange={(e) => setNewTarget({...newTarget, name: e.target.value})}
+                  value={newTarget.Name}
+                  onChange={(e) => setNewTarget({...newTarget, Name: e.target.value})}
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">IP 또는 도메인 주소</label>
                 <input 
                   type="text" 
-                  placeholder="예: 192.168.0.1 또는 google.com"
+                  placeholder="예: 1.1.1.1"
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-neon-blue/50 transition-colors"
-                  value={newTarget.host}
-                  onChange={(e) => setNewTarget({...newTarget, host: e.target.value})}
+                  value={newTarget.Host}
+                  onChange={(e) => setNewTarget({...newTarget, Host: e.target.value})}
                 />
               </div>
             </div>
             <div className="flex gap-3 pt-4">
-              <button 
-                onClick={() => setIsAddOpen(false)}
-                className="flex-1 px-6 py-3 rounded-xl font-bold text-white/40 hover:bg-white/5 transition-colors"
-              >
-                취소
-              </button>
-              <button 
-                onClick={handleAddTarget}
-                className="flex-1 px-6 py-3 rounded-xl font-bold bg-neon-blue text-black hover:scale-[1.02] active:scale-[0.98] transition-all"
-              >
-                추가하기
-              </button>
+              <button onClick={() => setIsAddOpen(false)} className="flex-1 px-6 py-3 rounded-xl font-bold text-white/40 hover:bg-white/5 transition-colors">취소</button>
+              <button onClick={handleAddTarget} className="flex-1 px-6 py-3 rounded-xl font-bold bg-neon-blue text-black">추가하기</button>
             </div>
           </div>
         </div>
@@ -196,54 +189,33 @@ export default function Dashboard() {
                   type="number" 
                   min="1"
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-neon-pink/50 transition-colors"
-                  value={settings.interval}
+                  value={settings.Interval}
                   onChange={(e) => {
                     const val = Math.max(1, parseInt(e.target.value) || 1);
-                    const updated = { ...settings, interval: val };
+                    const updated = { ...settings, Interval: val };
                     setSettings(updated);
                     invoke("update_settings", { newSettings: updated });
                   }}
                 />
               </div>
               <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">대상 리스트 관리</label>
-                  <button 
-                    onClick={() => {
-                      setIsSettingsOpen(false);
-                      setIsAddOpen(true);
-                    }}
-                    className="text-[10px] font-black text-neon-blue hover:underline"
-                  >
-                    + 새 대상 추가
-                  </button>
-                </div>
+                <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">대상 리스트 관리</label>
                 <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
-                  {settings.targets.map(t => (
-                    <div key={t.host} className="flex justify-between items-center p-3 bg-white/5 rounded-xl border border-white/5">
-                      <div className="text-xs font-bold">{t.name} <span className="text-white/30 ml-2 font-mono">{t.host}</span></div>
-                      <button 
-                        onClick={() => removeTarget(t.host)}
-                        className="text-[10px] font-black text-neon-red hover:underline"
-                      >
-                        삭제
-                      </button>
+                  {settings.Targets.map(t => (
+                    <div key={t.Host} className="flex justify-between items-center p-3 bg-white/5 rounded-xl border border-white/5">
+                      <div className="text-xs font-bold">{t.Name} <span className="text-white/30 ml-2 font-mono">{t.Host}</span></div>
+                      <button onClick={() => removeTarget(t.Host)} className="text-[10px] font-black text-neon-red hover:underline">삭제</button>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
-            <button 
-              onClick={() => setIsSettingsOpen(false)}
-              className="w-full px-6 py-4 rounded-xl font-bold bg-white/10 text-white hover:bg-white/20 transition-all"
-            >
-              설정 닫기
-            </button>
+            <button onClick={() => setIsSettingsOpen(false)} className="w-full px-6 py-4 rounded-xl font-bold bg-white/10 text-white">설정 닫기</button>
           </div>
         </div>
       )}
 
-      {/* 푸터 / 상태바 */}
+      {/* 푸터 */}
       <footer className="px-8 py-4 border-t border-white/5 flex justify-between items-center z-10 bg-black/20">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
@@ -251,23 +223,9 @@ export default function Dashboard() {
             <span className="text-[10px] font-bold text-white/40 uppercase">시스템 작동 중</span>
           </div>
           <div className="w-px h-3 bg-white/10" />
-          <span className="text-[10px] font-bold text-white/40 uppercase">
-            {settings.targets.length}개 대상 모니터링 중
-          </span>
+          <span className="text-[10px] font-bold text-white/40 uppercase">{settings?.Targets?.length || 0}개 대상 모니터링 중</span>
         </div>
-        <div className="flex items-center gap-4">
-          {latestRelease && (
-            <div className="flex items-center gap-2 px-2 py-0.5 rounded bg-neon-blue/10 border border-neon-blue/20">
-              <Activity size={10} className="text-neon-blue" />
-              <span className="text-[10px] font-bold text-neon-blue uppercase">
-                최신 버전: {latestRelease.tag_name}
-              </span>
-            </div>
-          )}
-          <div className="text-[10px] font-bold text-white/20 uppercase">
-            v0.2.3 • Antigravity AI
-          </div>
-        </div>
+        <div className="text-[10px] font-bold text-white/20 uppercase">v0.2.3 • Antigravity AI</div>
       </footer>
     </div>
   );

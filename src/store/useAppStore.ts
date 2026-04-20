@@ -2,22 +2,22 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 interface Target {
-  name: string;
-  host: string;
+  Name: string;
+  Host: string;
 }
 
 interface AppSettings {
-  targets: Target[];
-  interval: number;
-  success_color: string;
-  failure_color: string;
+  Targets: Target[];
+  Interval: number;
+  SuccessColor: string;
+  FailureColor: string;
 }
 
 interface PingResult {
-  host: string;
-  latency: number | null;
-  status: boolean;
-  timestamp: string;
+  Host: string;
+  Latency: number | null;
+  Status: boolean;
+  Timestamp: string;
 }
 
 interface AppState {
@@ -32,13 +32,13 @@ export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
       settings: {
-        targets: [
-          { name: "구글 DNS", host: "8.8.8.8" },
-          { name: "클라우드플레어 DNS", host: "1.1.1.1" },
+        Targets: [
+          { Name: "구글 DNS", Host: "8.8.8.8" },
+          { Name: "클라우드플레어 DNS", Host: "1.1.1.1" },
         ],
-        interval: 2,
-        success_color: "#4ade80",
-        failure_color: "#f87171",
+        Interval: 2,
+        SuccessColor: "#4ade80",
+        FailureColor: "#f87171",
       },
       results: {},
       setSettings: (settings) => set({ settings }),

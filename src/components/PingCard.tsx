@@ -5,10 +5,10 @@ import { Area, AreaChart, ResponsiveContainer, YAxis } from "recharts";
 import { Activity, ShieldCheck, ShieldAlert } from "lucide-react";
 
 interface PingResult {
-  host: string;
-  latency: number | null;
-  status: boolean;
-  timestamp: string;
+  Host: string;
+  Latency: number | null;
+  Status: boolean;
+  Timestamp: string;
 }
 
 interface PingCardProps {
@@ -22,13 +22,15 @@ interface PingCardProps {
 }
 
 export default function PingCard({ name, host, results, colors }: PingCardProps) {
-  const latest = results[results.length - 1];
-  const isOnline = latest?.status ?? false;
-  const currentLatency = latest?.latency ?? 0;
+  // 결과 데이터가 없을 경우를 대비한 안전 장치
+  const safeResults = results || [];
+  const latest = safeResults[safeResults.length - 1];
+  const isOnline = latest?.Status ?? false;
+  const currentLatency = latest?.Latency ?? 0;
 
   // 차트 데이터 준비
-  const data = results.map((r, i) => ({
-    value: r.latency ?? 0,
+  const data = safeResults.map((r, i) => ({
+    value: r.Latency ?? 0,
     index: i,
   }));
 
@@ -59,7 +61,7 @@ export default function PingCard({ name, host, results, colors }: PingCardProps)
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data}>
             <defs>
-              <linearGradient id={`color-${host}`} x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id={`color-${host.replace(/\./g, '-')}`} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor={currentColor} stopOpacity={0.3} />
                 <stop offset="95%" stopColor={currentColor} stopOpacity={0} />
               </linearGradient>
@@ -71,14 +73,13 @@ export default function PingCard({ name, host, results, colors }: PingCardProps)
               stroke={currentColor}
               strokeWidth={2}
               fillOpacity={1}
-              fill={`url(#color-${host})`}
+              fill={`url(#color-${host.replace(/\./g, '-')})`}
               isAnimationActive={false}
             />
           </AreaChart>
         </ResponsiveContainer>
       </div>
 
-      {/* Glow background effect */}
       <div 
         className="absolute -bottom-10 -right-10 w-32 h-32 blur-[60px] opacity-20 pointer-events-none"
         style={{ backgroundColor: currentColor }}
