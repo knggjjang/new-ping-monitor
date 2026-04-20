@@ -7,9 +7,9 @@
   ],
   "permissions": [
     "core:default",
+    "core:window:allow-all",
     "shell:default",
     "log:default",
-    "window:allow-all",
     "app-commands"
   ]
 }
