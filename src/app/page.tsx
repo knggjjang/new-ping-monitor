@@ -262,7 +262,7 @@ export default function Dashboard() {
             </div>
           )}
           <div className="text-[10px] font-bold text-white/20 uppercase">
-            v0.1.7 • Antigravity AI
+            v0.2.0 • Antigravity AI
           </div>
         </div>
       </footer>
