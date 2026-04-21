@@ -1,10 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import { Settings, Plus, Zap, AlertCircle, Download, Upload, Check, GripVertical } from "lucide-react";
-import { Reorder, AnimatePresence } from "framer-motion";
+import { Settings, Plus, Zap, AlertCircle, Download, Upload, Check } from "lucide-react";
+import { 
+  DndContext, 
+  closestCenter, 
+  KeyboardSensor, 
+  PointerSensor, 
+  useSensor, 
+  useSensors,
+  DragEndEvent
+} from "@dnd-kit/core";
+import { 
+  arrayMove, 
+  SortableContext, 
+  sortableKeyboardCoordinates, 
+  rectSortingStrategy 
+} from "@dnd-kit/sortable";
+import { AnimatePresence } from "framer-motion";
 import PingCard from "@/components/PingCard";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -17,6 +32,18 @@ export default function Dashboard() {
   const [engineError, setEngineError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [actionMessage, setActionMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
+
+  // dnd-kit 센서 설정
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // 클릭과 드래그 구분
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   useEffect(() => {
     setMounted(true);
@@ -81,13 +108,22 @@ export default function Dashboard() {
     invoke("update_settings", { newSettings: updated });
   };
 
-  const handleReorder = (newOrder: any[]) => {
-    const updated = {
-      ...settings,
-      Targets: newOrder,
-    };
-    setSettings(updated);
-    invoke("update_settings", { newSettings: updated });
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = settings.Targets.findIndex(t => t.Host === active.id);
+      const newIndex = settings.Targets.findIndex(t => t.Host === over.id);
+      
+      const newOrder = arrayMove(settings.Targets, oldIndex, newIndex);
+      const updated = {
+        ...settings,
+        Targets: newOrder,
+      };
+      
+      setSettings(updated);
+      invoke("update_settings", { newSettings: updated });
+    }
   };
 
   const handleImport = async () => {
@@ -129,7 +165,7 @@ export default function Dashboard() {
             뉴 핑 모니터 <span className="text-white/20">대시보드</span>
           </h1>
           <p className="text-[10px] uppercase tracking-[0.3em] text-white/40 mt-1 font-bold">
-            드래그하여 순서 변경 가능 • 실시간 모니터링
+            자유로운 위치 변경 • 실시간 모니터링
           </p>
         </div>
         <div className="flex gap-3">
@@ -170,50 +206,42 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* 카드 그리드 - Reorder 적용 */}
-        <Reorder.Group 
-          axis="y" 
-          values={settings.Targets} 
-          onReorder={handleReorder}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+        {/* 카드 그리드 - dnd-kit SortableContext 적용 */}
+        <DndContext 
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
         >
-          {settings?.Targets?.map((target) => (
-            <Reorder.Item 
-              key={target.Host} 
-              value={target}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              whileDrag={{ scale: 1.05, zIndex: 50, cursor: "grabbing" }}
-              className="relative group"
-            >
-              {/* 드래그 핸들 (선택 사항 - 여기서는 카드 전체가 드래그 가능) */}
-              <div className="absolute top-4 left-4 z-20 opacity-0 group-hover:opacity-30 transition-opacity cursor-grab">
-                <GripVertical size={16} />
-              </div>
-
-              <PingCard
-                name={target.Name}
-                host={target.Host}
-                results={results[target.Host] || []}
-                colors={{
-                  online: settings.SuccessColor,
-                  offline: settings.FailureColor,
-                }}
-              />
-            </Reorder.Item>
-          ))}
-          
-          <button 
-            onClick={() => setIsAddOpen(true)}
-            className="glass border-dashed border-2 border-white/10 flex flex-col items-center justify-center p-8 rounded-2xl hover:border-neon-blue/40 hover:bg-neon-blue/5 transition-all group min-h-[200px]"
+          <SortableContext 
+            items={settings.Targets.map(t => t.Host)}
+            strategy={rectSortingStrategy}
           >
-            <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-              <Plus size={24} className="text-white/40 group-hover:text-neon-blue" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {settings?.Targets?.map((target) => (
+                <PingCard
+                  key={target.Host}
+                  name={target.Name}
+                  host={target.Host}
+                  results={results[target.Host] || []}
+                  colors={{
+                    online: settings.SuccessColor,
+                    offline: settings.FailureColor,
+                  }}
+                />
+              ))}
+              
+              <button 
+                onClick={() => setIsAddOpen(true)}
+                className="glass border-dashed border-2 border-white/10 flex flex-col items-center justify-center p-8 rounded-2xl hover:border-neon-blue/40 hover:bg-neon-blue/5 transition-all group min-h-[200px]"
+              >
+                <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                  <Plus size={24} className="text-white/40 group-hover:text-neon-blue" />
+                </div>
+                <span className="text-sm font-bold text-white/30 group-hover:text-white/60">새 모니터링 대상 추가</span>
+              </button>
             </div>
-            <span className="text-sm font-bold text-white/30 group-hover:text-white/60">새 모니터링 대상 추가</span>
-          </button>
-        </Reorder.Group>
+          </SortableContext>
+        </DndContext>
       </main>
 
       {/* 타겟 추가 모달 */}
@@ -316,7 +344,7 @@ export default function Dashboard() {
           <div className="w-px h-3 bg-white/10" />
           <span className="text-[10px] font-bold text-white/40 uppercase">{settings?.Targets?.length || 0}개 대상 모니터링 중</span>
         </div>
-        <div className="text-[10px] font-bold text-white/20 uppercase">v0.2.6 • Antigravity AI</div>
+        <div className="text-[10px] font-bold text-white/20 uppercase">v0.2.7 • Antigravity AI</div>
       </footer>
     </div>
   );

@@ -2,7 +2,9 @@
 
 import React from "react";
 import { Area, AreaChart, ResponsiveContainer, YAxis } from "recharts";
-import { Activity, ShieldCheck, ShieldAlert } from "lucide-react";
+import { Activity, ShieldCheck, ShieldAlert, GripVertical } from "lucide-react";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface PingResult {
   Host: string;
@@ -22,6 +24,22 @@ interface PingCardProps {
 }
 
 export default function PingCard({ name, host, results, colors }: PingCardProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: host });
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : 1,
+    opacity: isDragging ? 0.6 : 1,
+  };
+
   // 결과 데이터가 없을 경우를 대비한 안전 장치
   const safeResults = results || [];
   const latest = safeResults[safeResults.length - 1];
@@ -37,18 +55,32 @@ export default function PingCard({ name, host, results, colors }: PingCardProps)
   const currentColor = isOnline ? colors.online : colors.offline;
 
   return (
-    <div className={`glass relative p-5 rounded-2xl overflow-hidden transition-all duration-500 ${isOnline ? 'neon-border-green' : 'neon-border-red'}`}>
+    <div 
+      ref={setNodeRef}
+      style={style}
+      className={`glass relative p-5 rounded-2xl overflow-hidden transition-all duration-500 ${isOnline ? 'neon-border-green' : 'neon-border-red'} ${isDragging ? 'scale-105 shadow-2xl ring-2 ring-neon-blue/50' : ''}`}
+    >
       <div className="flex justify-between items-start mb-4">
-        <div>
-          <h3 className="text-lg font-bold tracking-tight text-white/90">{name}</h3>
-          <p className="text-xs font-mono text-white/40">{host}</p>
+        <div className="flex items-start gap-3">
+          {/* 드래그 핸들 */}
+          <div 
+            {...attributes} 
+            {...listeners} 
+            className="mt-1 p-1 hover:bg-white/10 rounded cursor-grab active:cursor-grabbing text-white/20 hover:text-white/60 transition-colors"
+          >
+            <GripVertical size={16} />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold tracking-tight text-white/90">{name}</h3>
+            <p className="text-xs font-mono text-white/40">{host}</p>
+          </div>
         </div>
         <div className={`p-2 rounded-full ${isOnline ? 'bg-green-500/10 text-neon-green' : 'bg-red-500/10 text-neon-red'}`}>
           {isOnline ? <ShieldCheck size={20} /> : <ShieldAlert size={20} />}
         </div>
       </div>
 
-      <div className="flex items-baseline gap-2 mb-6">
+      <div className="flex items-baseline gap-2 mb-6 ml-8">
         <span className={`text-3xl font-black ${isOnline ? 'neon-text-green' : 'neon-text-red'}`}>
           {isOnline ? `${currentLatency}ms` : "연결 안됨"}
         </span>
