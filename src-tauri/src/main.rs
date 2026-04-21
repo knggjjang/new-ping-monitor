@@ -189,8 +189,8 @@ fn get_engine_error(state: tauri::State<'_, Arc<AppState>>) -> Option<String> {
 fn get_latest_release() -> serde_json::Value {
     // Return current version as "latest" for now
     serde_json::json!({
-        "tag_name": "v0.3.5",
-        "name": "v0.3.5 Stable"
+        "tag_name": "v0.3.6",
+        "name": "v0.3.6 Stable"
     })
 }
 
@@ -251,11 +251,17 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .setup(|app| {
-            use tauri::Manager;
-            let window = app.get_webview_window("main").unwrap();
-            let _ = window.set_decorations(false);
-            let _ = window.set_shadow(false);
-            let _ = window.set_title(" ");
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                // 시스템이 타이틀바를 그릴 시간을 주지 않고 즉시 설정을 다시 덮어씌웁니다.
+                if let Some(window) = handle.get_webview_window("main") {
+                    let _ = window.set_decorations(false);
+                    let _ = window.set_shadow(false);
+                    let _ = window.set_title(" ");
+                    // 모든 설정이 완료된 후 창을 표시합니다.
+                    let _ = window.show();
+                }
+            });
             
             let initial_settings = load_settings_from_file(&app.handle());
             let state = Arc::new(AppState {
