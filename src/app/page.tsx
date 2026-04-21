@@ -58,7 +58,6 @@ export default function Dashboard() {
 
   if (!mounted) return null;
 
-  // 창 제어 함수
   const appWindow = getCurrentWindow();
   const handleMinimize = () => appWindow.minimize();
   const handleMaximize = async () => {
@@ -116,30 +115,18 @@ export default function Dashboard() {
       style={{ backgroundColor: settings.BackgroundColor || "#050505" }}
       className="flex flex-col h-full text-white overflow-hidden relative transition-colors duration-700"
     >
-      {/* 1. 최상단 드래그 핸들 전용 영역 (배경 무관) */}
-      <div 
-        data-tauri-drag-region 
-        className="absolute top-0 left-0 w-full h-10 z-[80] cursor-default" 
-      />
+      {/* 최상단 드래그 핸들 영역 */}
+      <div data-tauri-drag-region className="absolute top-0 left-0 w-full h-10 z-[80] cursor-default" />
 
-      {/* 2. 창 제어 버튼 (드래그 영역보다 위에 배치하여 클릭 우선순위 확보) */}
+      {/* 창 제어 버튼 */}
       <div className="absolute top-0 right-0 z-[120] flex items-center select-none bg-black/40 backdrop-blur-md border-b border-l border-white/10 rounded-bl-xl overflow-hidden">
-        <button 
-          onClick={handleMinimize} 
-          className="w-12 h-10 flex items-center justify-center hover:bg-white/10 transition-colors group"
-        >
+        <button onClick={handleMinimize} className="w-12 h-10 flex items-center justify-center hover:bg-white/10 transition-colors group">
           <Minus size={16} className="text-white/70 group-hover:text-white" />
         </button>
-        <button 
-          onClick={handleMaximize} 
-          className="w-12 h-10 flex items-center justify-center hover:bg-white/10 transition-colors group"
-        >
+        <button onClick={handleMaximize} className="w-12 h-10 flex items-center justify-center hover:bg-white/10 transition-colors group">
           <Square size={14} className="text-white/70 group-hover:text-white" />
         </button>
-        <button 
-          onClick={handleClose} 
-          className="w-12 h-10 flex items-center justify-center hover:bg-red-500/90 transition-colors group"
-        >
+        <button onClick={handleClose} className="w-12 h-10 flex items-center justify-center hover:bg-red-500/90 transition-colors group">
           <X size={18} className="text-white/70 group-hover:text-white" />
         </button>
       </div>
@@ -151,21 +138,25 @@ export default function Dashboard() {
       </div>
 
       {/* 헤더 */}
-      <header className="flex justify-between items-center px-8 py-10 z-10 select-none relative mt-2">
-        <div>
+      <header className="flex flex-col px-8 py-10 z-10 select-none relative mt-2">
+        <div className="flex items-center gap-4">
           <h1 className="text-3xl font-black tracking-tighter flex items-center gap-3">
             <Zap className="text-neon-blue fill-neon-blue/20" size={32} />
             뉴 핑 모니터 <span className="text-white/20">대시보드</span>
           </h1>
-          <p className="text-[10px] uppercase tracking-[0.3em] text-white/40 mt-1 font-bold">
-            커스텀 테마 & 프레임리스 최적화 • v0.3.2
-          </p>
-        </div>
-        <div className="flex gap-3 mr-40"> {/* 창 버튼 공간 넉넉히 확보 */}
-          <button className="glass p-3 rounded-full hover:bg-white/10 transition-colors shadow-xl border-white/20" onClick={() => setIsSettingsOpen(true)}>
-            <Settings size={20} className="text-white/80" />
+          
+          {/* 설정 버튼을 제목 바로 옆으로 이동 */}
+          <button 
+            className="glass p-2 rounded-full hover:bg-white/10 transition-all shadow-xl border-white/10 hover:scale-110 active:scale-95" 
+            onClick={() => setIsSettingsOpen(true)}
+            title="환경 설정"
+          >
+            <Settings size={18} className="text-white/60" />
           </button>
         </div>
+        <p className="text-[10px] uppercase tracking-[0.3em] text-white/40 mt-1 font-bold">
+          커스텀 테마 & 최적화된 레이아웃 • v0.3.3
+        </p>
       </header>
 
       {/* 메인 콘텐츠 */}
@@ -307,7 +298,7 @@ export default function Dashboard() {
           <div className="w-px h-3 bg-white/10" />
           <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest">{settings?.Targets?.length || 0} TARGETS ACTIVE</span>
         </div>
-        <div className="text-[10px] font-bold text-white/20 uppercase tracking-widest">v0.3.2 • ANTIGRAVITY</div>
+        <div className="text-[10px] font-bold text-white/20 uppercase tracking-widest">v0.3.3 • ANTIGRAVITY</div>
       </footer>
     </div>
   );
