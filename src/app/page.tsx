@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Settings, Plus, Zap, AlertCircle, Download, Upload, Check, Palette, Layout, Minus, Square, X } from "lucide-react";
+import { Settings, Plus, Zap, AlertCircle, Download, Upload, Check, Palette, Layout } from "lucide-react";
 import { 
   DndContext, 
   closestCenter, 
@@ -58,15 +57,6 @@ export default function Dashboard() {
 
   if (!mounted) return null;
 
-  const appWindow = getCurrentWindow();
-  const handleMinimize = () => appWindow.minimize();
-  const handleMaximize = async () => {
-    const isMax = await appWindow.isMaximized();
-    if (isMax) await appWindow.unmaximize();
-    else await appWindow.maximize();
-  };
-  const handleClose = () => appWindow.close();
-
   const handleAddTarget = () => {
     if (newTarget.Name && newTarget.Host) {
       const updated = { ...settings, Targets: [...settings.Targets, newTarget] };
@@ -115,22 +105,6 @@ export default function Dashboard() {
       style={{ backgroundColor: settings.BackgroundColor || "#050505" }}
       className="flex flex-col h-full text-white overflow-hidden relative transition-colors duration-700"
     >
-      {/* 최상단 드래그 핸들 영역 */}
-      <div data-tauri-drag-region className="absolute top-0 left-0 w-full h-10 z-[80] cursor-default" />
-
-      {/* 창 제어 버튼 - 투명하게 변경하여 배경색 상속 */}
-      <div className="absolute top-0 right-0 z-[120] flex items-center select-none bg-white/5 backdrop-blur-md border-b border-l border-white/10 rounded-bl-xl overflow-hidden">
-        <button onClick={handleMinimize} className="w-12 h-10 flex items-center justify-center hover:bg-white/20 transition-colors group">
-          <Minus size={16} className="text-white/70 group-hover:text-white" />
-        </button>
-        <button onClick={handleMaximize} className="w-12 h-10 flex items-center justify-center hover:bg-white/20 transition-colors group">
-          <Square size={14} className="text-white/70 group-hover:text-white" />
-        </button>
-        <button onClick={handleClose} className="w-12 h-10 flex items-center justify-center hover:bg-red-500/80 transition-colors group">
-          <X size={18} className="text-white/70 group-hover:text-white" />
-        </button>
-      </div>
-
       {/* 배경 장식 */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
         <div style={{ backgroundColor: settings.SuccessColor }} className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full blur-[120px] opacity-10 transition-colors duration-1000" />
@@ -138,7 +112,7 @@ export default function Dashboard() {
       </div>
 
       {/* 헤더 */}
-      <header className="flex flex-col px-8 py-10 z-10 select-none relative mt-2">
+      <header className="flex flex-col px-8 py-10 z-10 select-none relative">
         <div className="flex items-center gap-4">
           <h1 className="text-3xl font-black tracking-tighter flex items-center gap-3">
             <Zap className="text-neon-blue fill-neon-blue/20" size={32} />
@@ -153,7 +127,7 @@ export default function Dashboard() {
           </button>
         </div>
         <p className="text-[10px] uppercase tracking-[0.3em] text-white/40 mt-1 font-bold">
-          테마 시스템 완벽 동화 • v0.3.7
+          네이티브 통합 테마 시스템 • v0.4.0
         </p>
       </header>
 
@@ -271,7 +245,7 @@ export default function Dashboard() {
           <div className="w-px h-3 bg-white/10" />
           <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest">{settings?.Targets?.length || 0} TARGETS ACTIVE</span>
         </div>
-        <div className="text-[10px] font-bold text-white/20 uppercase tracking-widest">v0.3.7 • ANTIGRAVITY</div>
+        <div className="text-[10px] font-bold text-white/20 uppercase tracking-widest">v0.4.0 • ANTIGRAVITY</div>
       </footer>
     </div>
   );

@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "NewPingMonitor",
-  "version": "0.3.7",
+  "version": "0.4.0",
   "identifier": "com.jyyun.newpingmonitor",
   "build": {
     "frontendDist": "../out",
@@ -26,15 +26,15 @@
   "app": {
     "windows": [
       {
-        "title": " ",
+        "title": "New Ping Monitor",
         "width": 1000,
         "height": 700,
         "resizable": true,
         "fullscreen": false,
-        "decorations": false,
+        "decorations": true,
         "transparent": true,
-        "shadow": false,
-        "visible": false
+        "shadow": true,
+        "visible": true
       }
     ],
     "security": {
