@@ -155,7 +155,7 @@ export default function Dashboard() {
           </button>
         </div>
         <p className="text-[10px] uppercase tracking-[0.3em] text-white/40 mt-1 font-bold">
-          커스텀 테마 & 최적화된 레이아웃 • v0.3.3
+          커스텀 테마 & 프레임리스 완벽 적용 • v0.3.4
         </p>
       </header>
 
@@ -298,7 +298,7 @@ export default function Dashboard() {
           <div className="w-px h-3 bg-white/10" />
           <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest">{settings?.Targets?.length || 0} TARGETS ACTIVE</span>
         </div>
-        <div className="text-[10px] font-bold text-white/20 uppercase tracking-widest">v0.3.3 • ANTIGRAVITY</div>
+        <div className="text-[10px] font-bold text-white/20 uppercase tracking-widest">v0.3.4 • ANTIGRAVITY</div>
       </footer>
     </div>
   );
