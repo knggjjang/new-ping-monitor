@@ -237,8 +237,8 @@ fn get_engine_error(state: tauri::State<'_, Arc<AppState>>) -> Option<String> {
 #[tauri::command]
 fn get_latest_release() -> serde_json::Value {
     serde_json::json!({
-        "tag_name": "v0.4.1",
-        "name": "v0.4.1 Stable"
+        "tag_name": "v0.4.2",
+        "name": "v0.4.2 Stable"
     })
 }
 

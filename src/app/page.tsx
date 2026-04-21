@@ -111,8 +111,8 @@ export default function Dashboard() {
         <div style={{ backgroundColor: settings.FailureColor }} className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full blur-[120px] opacity-10 transition-colors duration-1000" />
       </div>
 
-      {/* 헤더 */}
-      <header className="flex flex-col px-8 py-10 z-10 select-none relative">
+      {/* 헤더 - 중복 드래그 영역 및 불필요한 여백 완전 제거 */}
+      <header className="flex flex-col px-8 py-8 z-10 select-none relative">
         <div className="flex items-center gap-4">
           <h1 className="text-3xl font-black tracking-tighter flex items-center gap-3">
             <Zap className="text-neon-blue fill-neon-blue/20" size={32} />
@@ -127,7 +127,7 @@ export default function Dashboard() {
           </button>
         </div>
         <p className="text-[10px] uppercase tracking-[0.3em] text-white/40 mt-1 font-bold">
-          네이티브 통합 테마 시스템 • v0.4.1
+          네이티브 통합 테마 최적화 • v0.4.2
         </p>
       </header>
 
@@ -245,7 +245,7 @@ export default function Dashboard() {
           <div className="w-px h-3 bg-white/10" />
           <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest">{settings?.Targets?.length || 0} TARGETS ACTIVE</span>
         </div>
-        <div className="text-[10px] font-bold text-white/20 uppercase tracking-widest">v0.4.1 • ANTIGRAVITY</div>
+        <div className="text-[10px] font-bold text-white/20 uppercase tracking-widest">v0.4.2 • ANTIGRAVITY</div>
       </footer>
     </div>
   );
