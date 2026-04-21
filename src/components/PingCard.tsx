@@ -57,8 +57,12 @@ export default function PingCard({ name, host, results, colors }: PingCardProps)
   return (
     <div 
       ref={setNodeRef}
-      style={style}
-      className={`glass relative p-5 rounded-2xl overflow-hidden transition-all duration-500 ${isOnline ? 'neon-border-green' : 'neon-border-red'} ${isDragging ? 'scale-105 shadow-2xl ring-2 ring-neon-blue/50' : ''}`}
+      style={{
+        ...style,
+        borderColor: currentColor,
+        boxShadow: isDragging ? `0 20px 40px rgba(0,0,0,0.4), 0 0 20px ${currentColor}40` : `0 0 10px ${currentColor}20`,
+      }}
+      className={`glass relative p-5 rounded-2xl overflow-hidden transition-all duration-500 border ${isDragging ? 'scale-105 ring-2 ring-neon-blue/30' : ''}`}
     >
       <div className="flex justify-between items-start mb-4">
         <div className="flex items-start gap-3">
@@ -81,7 +85,10 @@ export default function PingCard({ name, host, results, colors }: PingCardProps)
       </div>
 
       <div className="flex items-baseline gap-2 mb-6 ml-8">
-        <span className={`text-3xl font-black ${isOnline ? 'neon-text-green' : 'neon-text-red'}`}>
+        <span 
+          style={{ color: currentColor, textShadow: `0 0 10px ${currentColor}40` }}
+          className="text-3xl font-black"
+        >
           {isOnline ? `${currentLatency}ms` : "연결 안됨"}
         </span>
         <span className="text-[10px] font-bold text-white/20 tracking-widest uppercase">

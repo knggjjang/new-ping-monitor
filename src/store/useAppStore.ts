@@ -11,6 +11,7 @@ interface AppSettings {
   Interval: number;
   SuccessColor: string;
   FailureColor: string;
+  BackgroundColor: string;
 }
 
 interface PingResult {
@@ -39,6 +40,7 @@ export const useAppStore = create<AppState>()(
         Interval: 2,
         SuccessColor: "#4ade80",
         FailureColor: "#f87171",
+        BackgroundColor: "#050505",
       },
       results: {},
       setSettings: (settings) => set({ settings }),

@@ -24,6 +24,7 @@ struct AppSettings {
     interval: u32,
     success_color: String,
     failure_color: String,
+    background_color: String,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -65,6 +66,7 @@ fn load_settings_from_file<R: Runtime>(app: &AppHandle<R>) -> AppSettings {
         interval: 2,
         success_color: "#4ade80".to_string(),
         failure_color: "#f87171".to_string(),
+        background_color: "#050505".to_string(),
     }
 }
 
@@ -187,8 +189,8 @@ fn get_engine_error(state: tauri::State<'_, Arc<AppState>>) -> Option<String> {
 fn get_latest_release() -> serde_json::Value {
     // Return current version as "latest" for now
     serde_json::json!({
-        "tag_name": "v0.2.8",
-        "name": "v0.2.8 Stable"
+        "tag_name": "v0.2.9",
+        "name": "v0.2.9 Stable"
     })
 }
 
