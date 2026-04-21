@@ -10,6 +10,11 @@ use surge_ping::{Client, Config, IcmpPacket, PingIdentifier, PingSequence};
 use std::net::IpAddr;
 use tauri::Emitter;
 
+#[cfg(windows)]
+use windows_sys::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_CAPTION_COLOR, DWMWA_TEXT_COLOR};
+#[cfg(windows)]
+use windows_sys::Win32::Foundation::HWND;
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "PascalCase")]
 struct PingTarget {
@@ -41,6 +46,45 @@ struct AppState {
     results: Arc<Mutex<HashMap<String, Vec<PingResult>>>>,
     engine_error: Arc<Mutex<Option<String>>>,
 }
+
+// Windows 전용 타이틀바 색상 변경 함수
+#[cfg(windows)]
+fn set_title_bar_color<R: Runtime>(window: &tauri::WebviewWindow<R>, hex_color: &str) {
+    let hwnd = window.hwnd().unwrap().0 as HWND;
+    
+    // HEX (#RRGGBB) to COLORREF (0x00BBGGRR)
+    if hex_color.starts_with('#') && hex_color.len() == 7 {
+        let r = u32::from_str_radix(&hex_color[1..3], 16).unwrap_or(0);
+        let g = u32::from_str_radix(&hex_color[3..5], 16).unwrap_or(0);
+        let b = u32::from_str_radix(&hex_color[5..7], 16).unwrap_or(0);
+        
+        let color_ref: u32 = r | (g << 8) | (b << 16);
+        
+        unsafe {
+            // 타이틀바 배경색 변경 (DWMWA_CAPTION_COLOR = 35)
+            DwmSetWindowAttribute(
+                hwnd,
+                35, // DWMWA_CAPTION_COLOR
+                &color_ref as *const _ as *const _,
+                std::mem::size_of::<u32>() as u32,
+            );
+            
+            // 타이틀바 텍스트 색상 (배경이 밝으면 검정, 어두우면 흰색 - 단순화하여 흰색 고정 혹은 자동 계산 가능)
+            let brightness = (r * 299 + g * 587 + b * 114) / 1000;
+            let text_color: u32 = if brightness > 128 { 0x00000000 } else { 0x00FFFFFF };
+            
+            DwmSetWindowAttribute(
+                hwnd,
+                36, // DWMWA_TEXT_COLOR
+                &text_color as *const _ as *const _,
+                std::mem::size_of::<u32>() as u32,
+            );
+        }
+    }
+}
+
+#[cfg(not(windows))]
+fn set_title_bar_color<R: Runtime>(_window: &tauri::WebviewWindow<R>, _hex_color: &str) {}
 
 fn get_config_path<R: Runtime>(app: &AppHandle<R>) -> std::path::PathBuf {
     let mut path = app.path().app_data_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
@@ -177,7 +221,12 @@ fn update_settings(
 ) {
     save_settings_to_file(&app, &new_settings);
     let mut s = state.settings.lock().unwrap();
-    *s = new_settings;
+    *s = new_settings.clone();
+    
+    // 설정 업데이트 시 타이틀바 색상 동기화
+    if let Some(window) = app.get_webview_window("main") {
+        set_title_bar_color(&window, &new_settings.background_color);
+    }
 }
 
 #[tauri::command]
@@ -187,10 +236,9 @@ fn get_engine_error(state: tauri::State<'_, Arc<AppState>>) -> Option<String> {
 
 #[tauri::command]
 fn get_latest_release() -> serde_json::Value {
-    // Return current version as "latest" for now
     serde_json::json!({
-        "tag_name": "v0.4.0",
-        "name": "v0.4.0 Stable"
+        "tag_name": "v0.4.1",
+        "name": "v0.4.1 Stable"
     })
 }
 
@@ -215,6 +263,10 @@ async fn import_settings(
     save_settings_to_file(&app, &settings);
     let mut s = state.settings.lock().unwrap();
     *s = settings.clone();
+    
+    if let Some(window) = app.get_webview_window("main") {
+        set_title_bar_color(&window, &settings.background_color);
+    }
     
     Ok(settings)
 }
@@ -251,15 +303,13 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .setup(|app| {
-            // 네이티브 타이틀바 복원 및 초기 설정
+            let initial_settings = load_settings_from_file(&app.handle());
+            
+            // 초기 실행 시 타이틀바 색상 설정
             if let Some(window) = app.get_webview_window("main") {
-                let _ = window.set_decorations(true);
-                let _ = window.set_shadow(true);
-                let _ = window.set_title("New Ping Monitor");
-                let _ = window.show();
+                set_title_bar_color(&window, &initial_settings.background_color);
             }
             
-            let initial_settings = load_settings_from_file(&app.handle());
             let state = Arc::new(AppState {
                 settings: Arc::new(Mutex::new(initial_settings)),
                 results: Arc::new(Mutex::new(HashMap::new())),
