@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import { Settings, Plus, Zap, AlertCircle, Download, Upload, Check } from "lucide-react";
+import { Settings, Plus, Zap, AlertCircle, Download, Upload, Check, Palette } from "lucide-react";
 import { 
   DndContext, 
   closestCenter, 
@@ -165,7 +165,7 @@ export default function Dashboard() {
             뉴 핑 모니터 <span className="text-white/20">대시보드</span>
           </h1>
           <p className="text-[10px] uppercase tracking-[0.3em] text-white/40 mt-1 font-bold">
-            자유로운 위치 변경 • 실시간 모니터링
+            자유로운 색상 최적화 • 실시간 모니터링
           </p>
         </div>
         <div className="flex gap-3">
@@ -206,7 +206,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* 카드 그리드 - dnd-kit SortableContext 적용 */}
+        {/* 카드 그리드 */}
         <DndContext 
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -300,9 +300,49 @@ export default function Dashboard() {
                   }}
                 />
               </div>
+
+              {/* 색상 최적화 설정 추가 */}
+              <div className="space-y-3">
+                <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold flex items-center gap-2">
+                  <Palette size={12} /> 사용자 정의 색상
+                </label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-white/30 font-bold">온라인</span>
+                      <input 
+                        type="color" 
+                        value={settings.SuccessColor}
+                        onChange={(e) => {
+                          const updated = { ...settings, SuccessColor: e.target.value };
+                          setSettings(updated);
+                          invoke("update_settings", { newSettings: updated });
+                        }}
+                        className="w-8 h-8 rounded-lg overflow-hidden bg-transparent cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-white/30 font-bold">오프라인</span>
+                      <input 
+                        type="color" 
+                        value={settings.FailureColor}
+                        onChange={(e) => {
+                          const updated = { ...settings, FailureColor: e.target.value };
+                          setSettings(updated);
+                          invoke("update_settings", { newSettings: updated });
+                        }}
+                        className="w-8 h-8 rounded-lg overflow-hidden bg-transparent cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="space-y-4">
                 <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">대상 리스트 관리</label>
-                <div className="space-y-2 max-h-[150px] overflow-y-auto pr-2 custom-scrollbar">
+                <div className="space-y-2 max-h-[120px] overflow-y-auto pr-2 custom-scrollbar">
                   {settings.Targets.map(t => (
                     <div key={t.Host} className="flex justify-between items-center p-3 bg-white/5 rounded-xl border border-white/5">
                       <div className="text-xs font-bold">{t.Name} <span className="text-white/30 ml-2 font-mono">{t.Host}</span></div>
@@ -344,7 +384,7 @@ export default function Dashboard() {
           <div className="w-px h-3 bg-white/10" />
           <span className="text-[10px] font-bold text-white/40 uppercase">{settings?.Targets?.length || 0}개 대상 모니터링 중</span>
         </div>
-        <div className="text-[10px] font-bold text-white/20 uppercase">v0.2.7 • Antigravity AI</div>
+        <div className="text-[10px] font-bold text-white/20 uppercase">v0.2.8 • Antigravity AI</div>
       </footer>
     </div>
   );
