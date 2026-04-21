@@ -189,8 +189,8 @@ fn get_engine_error(state: tauri::State<'_, Arc<AppState>>) -> Option<String> {
 fn get_latest_release() -> serde_json::Value {
     // Return current version as "latest" for now
     serde_json::json!({
-        "tag_name": "v0.3.1",
-        "name": "v0.3.1 Stable"
+        "tag_name": "v0.3.2",
+        "name": "v0.3.2 Stable"
     })
 }
 
@@ -251,6 +251,10 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .setup(|app| {
+            use tauri::Manager;
+            let window = app.get_webview_window("main").unwrap();
+            let _ = window.set_decorations(false);
+            
             let initial_settings = load_settings_from_file(&app.handle());
             let state = Arc::new(AppState {
                 settings: Arc::new(Mutex::new(initial_settings)),
