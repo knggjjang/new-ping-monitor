@@ -118,15 +118,15 @@ export default function Dashboard() {
       {/* 최상단 드래그 핸들 영역 */}
       <div data-tauri-drag-region className="absolute top-0 left-0 w-full h-10 z-[80] cursor-default" />
 
-      {/* 창 제어 버튼 */}
-      <div className="absolute top-0 right-0 z-[120] flex items-center select-none bg-black/40 backdrop-blur-md border-b border-l border-white/10 rounded-bl-xl overflow-hidden">
-        <button onClick={handleMinimize} className="w-12 h-10 flex items-center justify-center hover:bg-white/10 transition-colors group">
+      {/* 창 제어 버튼 - 투명하게 변경하여 배경색 상속 */}
+      <div className="absolute top-0 right-0 z-[120] flex items-center select-none bg-white/5 backdrop-blur-md border-b border-l border-white/10 rounded-bl-xl overflow-hidden">
+        <button onClick={handleMinimize} className="w-12 h-10 flex items-center justify-center hover:bg-white/20 transition-colors group">
           <Minus size={16} className="text-white/70 group-hover:text-white" />
         </button>
-        <button onClick={handleMaximize} className="w-12 h-10 flex items-center justify-center hover:bg-white/10 transition-colors group">
+        <button onClick={handleMaximize} className="w-12 h-10 flex items-center justify-center hover:bg-white/20 transition-colors group">
           <Square size={14} className="text-white/70 group-hover:text-white" />
         </button>
-        <button onClick={handleClose} className="w-12 h-10 flex items-center justify-center hover:bg-red-500/90 transition-colors group">
+        <button onClick={handleClose} className="w-12 h-10 flex items-center justify-center hover:bg-red-500/80 transition-colors group">
           <X size={18} className="text-white/70 group-hover:text-white" />
         </button>
       </div>
@@ -144,8 +144,6 @@ export default function Dashboard() {
             <Zap className="text-neon-blue fill-neon-blue/20" size={32} />
             뉴 핑 모니터 <span className="text-white/20">대시보드</span>
           </h1>
-          
-          {/* 설정 버튼을 제목 바로 옆으로 이동 */}
           <button 
             className="glass p-2 rounded-full hover:bg-white/10 transition-all shadow-xl border-white/10 hover:scale-110 active:scale-95" 
             onClick={() => setIsSettingsOpen(true)}
@@ -155,7 +153,7 @@ export default function Dashboard() {
           </button>
         </div>
         <p className="text-[10px] uppercase tracking-[0.3em] text-white/40 mt-1 font-bold">
-          커스텀 테마 & 프레임리스 완벽 적용 • v0.3.4
+          테마 시스템 완벽 동화 • v0.3.5
         </p>
       </header>
 
@@ -264,32 +262,7 @@ export default function Dashboard() {
         )}
       </AnimatePresence>
 
-      {/* 타겟 추가 모달 생략... */}
-      <AnimatePresence>
-        {isAddOpen && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
-            <div className="glass w-full max-w-md p-8 rounded-3xl border border-white/10 space-y-6 animate-in zoom-in duration-200 shadow-2xl">
-              <h2 className="text-2xl font-black tracking-tighter uppercase">모니터링 <span className="text-neon-blue">대상 추가</span></h2>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">표시 이름</label>
-                  <input type="text" placeholder="예: 내 서버" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-neon-blue/50 transition-colors" value={newTarget.Name} onChange={(e) => setNewTarget({...newTarget, Name: e.target.value})} />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">IP 또는 도메인 주소</label>
-                  <input type="text" placeholder="예: 1.1.1.1" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-neon-blue/50 transition-colors" value={newTarget.Host} onChange={(e) => setNewTarget({...newTarget, Host: e.target.value})} />
-                </div>
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button onClick={() => setIsAddOpen(false)} className="flex-1 px-6 py-3 rounded-xl font-bold text-white/40 hover:bg-white/5 transition-colors">취소</button>
-                <button onClick={handleAddTarget} className="flex-1 px-6 py-3 rounded-xl font-bold bg-neon-blue text-black shadow-lg shadow-neon-blue/20">추가하기</button>
-              </div>
-            </div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      <footer className="px-8 py-4 border-t border-white/10 flex justify-between items-center z-10 bg-black/60 backdrop-blur-lg">
+      <footer className="px-8 py-4 border-t border-white/10 flex justify-between items-center z-10 bg-white/5 backdrop-blur-lg">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <div style={{ backgroundColor: settings.SuccessColor }} className="w-2.5 h-2.5 rounded-full animate-pulse shadow-[0_0_8px_rgba(255,255,255,0.5)]" />
@@ -298,7 +271,7 @@ export default function Dashboard() {
           <div className="w-px h-3 bg-white/10" />
           <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest">{settings?.Targets?.length || 0} TARGETS ACTIVE</span>
         </div>
-        <div className="text-[10px] font-bold text-white/20 uppercase tracking-widest">v0.3.4 • ANTIGRAVITY</div>
+        <div className="text-[10px] font-bold text-white/20 uppercase tracking-widest">v0.3.5 • ANTIGRAVITY</div>
       </footer>
     </div>
   );

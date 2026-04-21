@@ -2099,7 +2099,7 @@ dependencies = [
 
 [[package]]
 name = "new-ping-monitor"
-version = "0.3.4"
+version = "0.3.5"
 dependencies = [
  "chrono",
  "log",
