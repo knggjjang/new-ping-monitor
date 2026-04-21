@@ -189,8 +189,8 @@ fn get_engine_error(state: tauri::State<'_, Arc<AppState>>) -> Option<String> {
 fn get_latest_release() -> serde_json::Value {
     // Return current version as "latest" for now
     serde_json::json!({
-        "tag_name": "v0.3.6",
-        "name": "v0.3.6 Stable"
+        "tag_name": "v0.3.7",
+        "name": "v0.3.7 Stable"
     })
 }
 
@@ -247,18 +247,19 @@ async fn export_settings(
 
 fn main() {
     tauri::Builder::default()
+        // 창 상태 복원 플러그인이 프레임리스 설정을 덮어쓰지 않도록 확인
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
-                // 시스템이 타이틀바를 그릴 시간을 주지 않고 즉시 설정을 다시 덮어씌웁니다.
+                // 시스템과 플러그인이 창을 그리는 시간을 충분히 기다린 후 설정을 강제합니다.
+                tokio::time::sleep(std::time::Duration::from_millis(200)).await;
                 if let Some(window) = handle.get_webview_window("main") {
                     let _ = window.set_decorations(false);
                     let _ = window.set_shadow(false);
                     let _ = window.set_title(" ");
-                    // 모든 설정이 완료된 후 창을 표시합니다.
                     let _ = window.show();
                 }
             });
