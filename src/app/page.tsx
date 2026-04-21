@@ -3,7 +3,8 @@
 import { useEffect, useState, useMemo } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import { Settings, Plus, Zap, AlertCircle, Download, Upload, Check, Palette, Layout } from "lucide-react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { Settings, Plus, Zap, AlertCircle, Download, Upload, Check, Palette, Layout, Minus, Square, X } from "lucide-react";
 import { 
   DndContext, 
   closestCenter, 
@@ -33,48 +34,19 @@ export default function Dashboard() {
   const [mounted, setMounted] = useState(false);
   const [actionMessage, setActionMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
 
-  // dnd-kit 센서 설정
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
   useEffect(() => {
     setMounted(true);
-    
-    // 초기 데이터 로드
-    invoke("get_settings").then((s: any) => {
-      if (s) setSettings(s);
-    });
-    
-    invoke("get_ping_results").then((r: any) => {
-      if (r) setResults(r);
-    });
-    
-    // 엔진 오류 체크
-    invoke("get_engine_error").then((err: any) => {
-      if (err) setEngineError(err);
-    });
-
-    // 최신 릴리즈 정보
-    invoke("get_latest_release")
-      .then((res: any) => setLatestRelease(res))
-      .catch((err) => console.error("릴리즈 정보 로드 실패:", err));
-
-    // 실시간 업데이트 수신
-    const unlisten = listen("ping-update", (event: any) => {
-      setResults(event.payload as any);
-    });
-
-    return () => {
-      unlisten.then((fn) => fn());
-    };
+    invoke("get_settings").then((s: any) => { if (s) setSettings(s); });
+    invoke("get_ping_results").then((r: any) => { if (r) setResults(r); });
+    invoke("get_engine_error").then((err: any) => { if (err) setEngineError(err); });
+    invoke("get_latest_release").then((res: any) => setLatestRelease(res)).catch((err) => console.error(err));
+    const unlisten = listen("ping-update", (event: any) => { setResults(event.payload as any); });
+    return () => { unlisten.then((fn) => fn()); };
   }, []);
 
   useEffect(() => {
@@ -86,12 +58,22 @@ export default function Dashboard() {
 
   if (!mounted) return null;
 
+  // 창 제어 함수
+  const appWindow = getCurrentWindow();
+  const handleMinimize = () => appWindow.minimize();
+  const handleMaximize = async () => {
+    const isMaximized = await appWindow.isMaximized();
+    if (isMaximized) {
+      appWindow.unmaximize();
+    } else {
+      appWindow.maximize();
+    }
+  };
+  const handleClose = () => appWindow.close();
+
   const handleAddTarget = () => {
     if (newTarget.Name && newTarget.Host) {
-      const updated = {
-        ...settings,
-        Targets: [...settings.Targets, newTarget],
-      };
+      const updated = { ...settings, Targets: [...settings.Targets, newTarget] };
       setSettings(updated);
       invoke("update_settings", { newSettings: updated });
       setNewTarget({ Name: "", Host: "" });
@@ -100,27 +82,18 @@ export default function Dashboard() {
   };
 
   const removeTarget = (host: string) => {
-    const updated = {
-      ...settings,
-      Targets: settings.Targets.filter(t => t.Host !== host),
-    };
+    const updated = { ...settings, Targets: settings.Targets.filter(t => t.Host !== host) };
     setSettings(updated);
     invoke("update_settings", { newSettings: updated });
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-
     if (over && active.id !== over.id) {
       const oldIndex = settings.Targets.findIndex(t => t.Host === active.id);
       const newIndex = settings.Targets.findIndex(t => t.Host === over.id);
-      
       const newOrder = arrayMove(settings.Targets, oldIndex, newIndex);
-      const updated = {
-        ...settings,
-        Targets: newOrder,
-      };
-      
+      const updated = { ...settings, Targets: newOrder };
       setSettings(updated);
       invoke("update_settings", { newSettings: updated });
     }
@@ -131,22 +104,14 @@ export default function Dashboard() {
       const newSettings: any = await invoke("import_settings");
       setSettings(newSettings);
       setActionMessage({ text: "설정을 성공적으로 불러왔습니다.", type: 'success' });
-    } catch (e) {
-      if (e !== "취소됨") {
-        setActionMessage({ text: `불러오기 실패: ${e}`, type: 'error' });
-      }
-    }
+    } catch (e) { if (e !== "취소됨") setActionMessage({ text: `불러오기 실패: ${e}`, type: 'error' }); }
   };
 
   const handleExport = async () => {
     try {
       await invoke("export_settings");
       setActionMessage({ text: "설정을 성공적으로 내보냈습니다.", type: 'success' });
-    } catch (e) {
-      if (e !== "취소됨") {
-        setActionMessage({ text: `내보내기 실패: ${e}`, type: 'error' });
-      }
-    }
+    } catch (e) { if (e !== "취소됨") setActionMessage({ text: `내보내기 실패: ${e}`, type: 'error' }); }
   };
 
   return (
@@ -154,6 +119,19 @@ export default function Dashboard() {
       style={{ backgroundColor: settings.BackgroundColor || "#050505" }}
       className="flex flex-col h-full text-white overflow-hidden relative backdrop-blur-xl transition-colors duration-700"
     >
+      {/* 커스텀 창 제어 버튼 영역 */}
+      <div className="absolute top-0 right-0 z-[100] flex items-center select-none">
+        <button onClick={handleMinimize} className="p-3 hover:bg-white/10 transition-colors group">
+          <Minus size={14} className="text-white/40 group-hover:text-white" />
+        </button>
+        <button onClick={handleMaximize} className="p-3 hover:bg-white/10 transition-colors group">
+          <Square size={12} className="text-white/40 group-hover:text-white" />
+        </button>
+        <button onClick={handleClose} className="p-3 hover:bg-red-500/80 transition-colors group">
+          <X size={14} className="text-white/40 group-hover:text-white" />
+        </button>
+      </div>
+
       {/* 배경 장식 */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
         <div 
@@ -166,18 +144,18 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* 헤더 */}
-      <header data-tauri-drag-region className="flex justify-between items-center px-8 py-6 z-10 select-none">
-        <div>
-          <h1 className="text-3xl font-black tracking-tighter flex items-center gap-3">
+      {/* 헤더 - 드래그 영역 포함 */}
+      <header data-tauri-drag-region className="flex justify-between items-center px-8 py-8 z-10 select-none cursor-default">
+        <div data-tauri-drag-region>
+          <h1 data-tauri-drag-region className="text-3xl font-black tracking-tighter flex items-center gap-3">
             <Zap className="text-neon-blue fill-neon-blue/20" size={32} />
             뉴 핑 모니터 <span className="text-white/20">대시보드</span>
           </h1>
-          <p className="text-[10px] uppercase tracking-[0.3em] text-white/40 mt-1 font-bold">
-            커스텀 테마 적용 중 • 실시간 모니터링
+          <p data-tauri-drag-region className="text-[10px] uppercase tracking-[0.3em] text-white/40 mt-1 font-bold">
+            프레임리스 디자인 적용 중 • 실시간 모니터링
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 mr-24"> {/* 창 버튼 공간 확보 */}
           <button 
             className="glass p-3 rounded-full hover:bg-white/10 transition-colors"
             onClick={() => setIsSettingsOpen(true)}
@@ -215,16 +193,8 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* 카드 그리드 */}
-        <DndContext 
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext 
-            items={settings.Targets.map(t => t.Host)}
-            strategy={rectSortingStrategy}
-          >
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={settings.Targets.map(t => t.Host)} strategy={rectSortingStrategy}>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {settings?.Targets?.map((target) => (
                 <PingCard
@@ -232,17 +202,10 @@ export default function Dashboard() {
                   name={target.Name}
                   host={target.Host}
                   results={results[target.Host] || []}
-                  colors={{
-                    online: settings.SuccessColor,
-                    offline: settings.FailureColor,
-                  }}
+                  colors={{ online: settings.SuccessColor, offline: settings.FailureColor }}
                 />
               ))}
-              
-              <button 
-                onClick={() => setIsAddOpen(true)}
-                className="glass border-dashed border-2 border-white/10 flex flex-col items-center justify-center p-8 rounded-2xl hover:border-neon-blue/40 hover:bg-neon-blue/5 transition-all group min-h-[200px]"
-              >
+              <button onClick={() => setIsAddOpen(true)} className="glass border-dashed border-2 border-white/10 flex flex-col items-center justify-center p-8 rounded-2xl hover:border-neon-blue/40 hover:bg-neon-blue/5 transition-all group min-h-[200px]">
                 <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                   <Plus size={24} className="text-white/40 group-hover:text-neon-blue" />
                 </div>
@@ -261,68 +224,42 @@ export default function Dashboard() {
             <div className="space-y-6">
               <div className="space-y-2">
                 <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">핑 측정 주기 (초)</label>
-                <input 
-                  type="number" 
-                  min="1"
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-neon-pink/50 transition-colors"
-                  value={settings.Interval}
-                  onChange={(e) => {
-                    const val = Math.max(1, parseInt(e.target.value) || 1);
-                    const updated = { ...settings, Interval: val };
-                    setSettings(updated);
-                    invoke("update_settings", { newSettings: updated });
-                  }}
-                />
+                <input type="number" min="1" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-neon-pink/50 transition-colors" value={settings.Interval} onChange={(e) => {
+                  const val = Math.max(1, parseInt(e.target.value) || 1);
+                  const updated = { ...settings, Interval: val };
+                  setSettings(updated);
+                  invoke("update_settings", { newSettings: updated });
+                }} />
               </div>
-
-              {/* 색상 최적화 설정 확장 */}
               <div className="space-y-4">
-                <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold flex items-center gap-2">
-                  <Palette size={12} /> 테마 커스터마이징
-                </label>
+                <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold flex items-center gap-2"><Palette size={12} /> 테마 커스터마이징</label>
                 <div className="grid grid-cols-1 gap-4 bg-white/5 p-4 rounded-2xl border border-white/5">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-white/60 font-bold flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-green-400" /> 온라인 카드 테마</span>
-                    <input 
-                      type="color" 
-                      value={settings.SuccessColor}
-                      onChange={(e) => {
-                        const updated = { ...settings, SuccessColor: e.target.value };
-                        setSettings(updated);
-                        invoke("update_settings", { newSettings: updated });
-                      }}
-                      className="w-10 h-10 rounded-xl overflow-hidden bg-transparent cursor-pointer border-none"
-                    />
+                    <input type="color" value={settings.SuccessColor} onChange={(e) => {
+                      const updated = { ...settings, SuccessColor: e.target.value };
+                      setSettings(updated);
+                      invoke("update_settings", { newSettings: updated });
+                    }} className="w-10 h-10 rounded-xl overflow-hidden bg-transparent cursor-pointer border-none" />
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-white/60 font-bold flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-red-400" /> 오프라인 카드 테마</span>
-                    <input 
-                      type="color" 
-                      value={settings.FailureColor}
-                      onChange={(e) => {
-                        const updated = { ...settings, FailureColor: e.target.value };
-                        setSettings(updated);
-                        invoke("update_settings", { newSettings: updated });
-                      }}
-                      className="w-10 h-10 rounded-xl overflow-hidden bg-transparent cursor-pointer border-none"
-                    />
+                    <input type="color" value={settings.FailureColor} onChange={(e) => {
+                      const updated = { ...settings, FailureColor: e.target.value };
+                      setSettings(updated);
+                      invoke("update_settings", { newSettings: updated });
+                    }} className="w-10 h-10 rounded-xl overflow-hidden bg-transparent cursor-pointer border-none" />
                   </div>
                   <div className="flex items-center justify-between border-t border-white/10 pt-3">
                     <span className="text-xs text-white/60 font-bold flex items-center gap-2"><Layout size={14} className="text-white/40" /> 앱 배경 색상</span>
-                    <input 
-                      type="color" 
-                      value={settings.BackgroundColor || "#050505"}
-                      onChange={(e) => {
-                        const updated = { ...settings, BackgroundColor: e.target.value };
-                        setSettings(updated);
-                        invoke("update_settings", { newSettings: updated });
-                      }}
-                      className="w-10 h-10 rounded-xl overflow-hidden bg-transparent cursor-pointer border-none"
-                    />
+                    <input type="color" value={settings.BackgroundColor || "#050505"} onChange={(e) => {
+                      const updated = { ...settings, BackgroundColor: e.target.value };
+                      setSettings(updated);
+                      invoke("update_settings", { newSettings: updated });
+                    }} className="w-10 h-10 rounded-xl overflow-hidden bg-transparent cursor-pointer border-none" />
                   </div>
                 </div>
               </div>
-
               <div className="space-y-4">
                 <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">대상 리스트 관리</label>
                 <div className="space-y-2 max-h-[120px] overflow-y-auto pr-2 custom-scrollbar">
@@ -334,7 +271,6 @@ export default function Dashboard() {
                   ))}
                 </div>
               </div>
-              
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <button onClick={handleImport} className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-xs font-bold hover:bg-white/10 transition-all">
                   <Download size={14} className="text-neon-blue" /> 설정 불러오기
@@ -349,7 +285,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* 타겟 추가 모달 등은 생략... */}
+      {/* 타겟 추가 모달 */}
       <AnimatePresence>
         {isAddOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
@@ -358,23 +294,11 @@ export default function Dashboard() {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">표시 이름</label>
-                  <input 
-                    type="text" 
-                    placeholder="예: 내 서버"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-neon-blue/50 transition-colors"
-                    value={newTarget.Name}
-                    onChange={(e) => setNewTarget({...newTarget, Name: e.target.value})}
-                  />
+                  <input type="text" placeholder="예: 내 서버" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-neon-blue/50 transition-colors" value={newTarget.Name} onChange={(e) => setNewTarget({...newTarget, Name: e.target.value})} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">IP 또는 도메인 주소</label>
-                  <input 
-                    type="text" 
-                    placeholder="예: 1.1.1.1"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-neon-blue/50 transition-colors"
-                    value={newTarget.Host}
-                    onChange={(e) => setNewTarget({...newTarget, Host: e.target.value})}
-                  />
+                  <input type="text" placeholder="예: 1.1.1.1" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-neon-blue/50 transition-colors" value={newTarget.Host} onChange={(e) => setNewTarget({...newTarget, Host: e.target.value})} />
                 </div>
               </div>
               <div className="flex gap-3 pt-4">
@@ -386,20 +310,16 @@ export default function Dashboard() {
         )}
       </AnimatePresence>
 
-      {/* 푸터 */}
       <footer className="px-8 py-4 border-t border-white/5 flex justify-between items-center z-10 bg-black/20">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <div 
-              style={{ backgroundColor: settings.SuccessColor }}
-              className="w-2 h-2 rounded-full animate-pulse" 
-            />
+            <div style={{ backgroundColor: settings.SuccessColor }} className="w-2 h-2 rounded-full animate-pulse" />
             <span className="text-[10px] font-bold text-white/40 uppercase">시스템 작동 중</span>
           </div>
           <div className="w-px h-3 bg-white/10" />
           <span className="text-[10px] font-bold text-white/40 uppercase">{settings?.Targets?.length || 0}개 대상 모니터링 중</span>
         </div>
-        <div className="text-[10px] font-bold text-white/20 uppercase">v0.2.9 • Antigravity AI</div>
+        <div className="text-[10px] font-bold text-white/20 uppercase">v0.3.0 • Antigravity AI</div>
       </footer>
     </div>
   );
