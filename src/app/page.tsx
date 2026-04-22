@@ -110,10 +110,27 @@ export default function Dashboard() {
     } catch (e) { if (e !== "취소됨") setActionMessage({ text: `내보내기 실패: ${e}`, type: 'error' }); }
   };
 
+  // 카드 개수에 따른 최적의 그리드 계산
+  const targetCount = settings.Targets.length;
+  let gridCols = "grid-cols-1";
+  let gridRows = "";
+
+  if (targetCount > 0) {
+    if (targetCount === 1) gridCols = "grid-cols-1";
+    else if (targetCount === 2) gridCols = "grid-cols-1 sm:grid-cols-2";
+    else if (targetCount <= 4) gridCols = "grid-cols-2";
+    else if (targetCount <= 6) gridCols = "grid-cols-2 lg:grid-cols-3";
+    else gridCols = "grid-cols-2 md:grid-cols-3 lg:grid-cols-4";
+
+    // 행 높이 자동 배분을 위한 동적 스타일
+    const rows = Math.ceil(targetCount / (targetCount <= 2 ? (targetCount === 1 ? 1 : 2) : (targetCount <= 6 ? (targetCount <= 4 ? 2 : 3) : 4)));
+    gridRows = `grid-rows-${rows}`;
+  }
+
   return (
     <div 
       style={{ backgroundColor: settings.BackgroundColor || "#050505" }}
-      className="flex flex-col h-full text-white overflow-hidden relative transition-colors duration-700"
+      className="flex flex-col h-screen w-screen text-white overflow-hidden relative transition-colors duration-700"
     >
       {/* 배경 장식 */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
@@ -122,10 +139,10 @@ export default function Dashboard() {
       </div>
 
       {/* 헤더 */}
-      <header className="flex flex-col px-8 py-10 z-10 select-none relative">
+      <header className="flex flex-col px-8 py-6 z-10 select-none relative shrink-0">
         <div className="flex items-center gap-4">
-          <h1 className="text-3xl font-black tracking-tighter flex items-center gap-3">
-            <Zap className="text-neon-blue fill-neon-blue/20" size={32} />
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tighter flex items-center gap-3">
+            <Zap className="text-neon-blue fill-neon-blue/20" size={28} />
             뉴 핑 모니터 <span className="text-white/20">대시보드</span>
           </h1>
           <button 
@@ -137,50 +154,39 @@ export default function Dashboard() {
           </button>
         </div>
         <p className="text-[10px] uppercase tracking-[0.3em] text-white/40 mt-1 font-bold">
-          유동적 레이아웃 최적화 • v0.5.1
+          스크롤리스 풀 스크린 최적화 • v0.5.2
         </p>
       </header>
 
-      {/* 메인 콘텐츠 - 유동적 그리드 적용 */}
-      <main className="flex-1 overflow-y-auto px-8 pb-10 space-y-4 z-10 custom-scrollbar">
+      {/* 메인 콘텐츠 - 한 화면에 꽉 차도록 그리드 수정 */}
+      <main className="flex-1 min-h-0 px-6 pb-6 z-10 flex flex-col">
         <AnimatePresence>
           {actionMessage && (
             <motion.div 
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className={`fixed top-24 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-2xl border backdrop-blur-xl shadow-2xl ${
+              className={`fixed top-20 left-1/2 -translate-x-1/2 z-[100] px-6 py-2 rounded-2xl border backdrop-blur-xl shadow-2xl ${
               actionMessage.type === 'success' ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-red-500/10 border-red-500/30 text-red-400'
             }`}>
               <div className="flex items-center gap-3">
-                {actionMessage.type === 'success' ? <Check size={18} /> : <AlertCircle size={18} />}
-                <span className="text-sm font-bold">{actionMessage.text}</span>
+                {actionMessage.type === 'success' ? <Check size={16} /> : <AlertCircle size={16} />}
+                <span className="text-xs font-bold">{actionMessage.text}</span>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {engineError && (
-          <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-between animate-pulse mb-4 shadow-lg shadow-red-500/5">
-            <div className="flex items-center gap-3">
-              <AlertCircle className="text-red-500" size={24} />
-              <div>
-                <p className="text-sm font-bold text-red-500">시스템 오류</p>
-                <p className="text-xs text-red-500/80">{engineError}</p>
-              </div>
-            </div>
-            <button onClick={() => window.location.reload()} className="px-4 py-2 rounded-lg bg-red-500/20 text-xs font-bold hover:bg-red-500/30 transition-colors">다시 시도</button>
-          </div>
-        )}
-
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={settings.Targets.map(t => t.Host)} strategy={rectSortingStrategy}>
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(350px,1fr))] gap-6 pb-24">
+            <div className={`grid ${gridCols} gap-4 h-full w-full`}>
               {settings?.Targets?.map((target) => (
-                <PingCard key={target.Host} name={target.Name} host={target.Host} results={results[target.Host] || []} colors={{ online: settings.SuccessColor, offline: settings.FailureColor }} />
+                <div key={target.Host} className="h-full min-h-0">
+                  <PingCard name={target.Name} host={target.Host} results={results[target.Host] || []} colors={{ online: settings.SuccessColor, offline: settings.FailureColor }} />
+                </div>
               ))}
               {settings.Targets.length === 0 && (
-                <div className="col-span-full py-20 flex flex-col items-center justify-center border-2 border-dashed border-white/5 rounded-3xl">
+                <div className="col-span-full h-full flex flex-col items-center justify-center border-2 border-dashed border-white/5 rounded-3xl">
                   <p className="text-white/20 font-bold">등록된 모니터링 대상이 없습니다.</p>
                   <button onClick={() => setIsSettingsOpen(true)} className="mt-4 text-xs font-bold text-neon-blue hover:underline">설정에서 추가하기</button>
                 </div>
@@ -189,6 +195,19 @@ export default function Dashboard() {
           </SortableContext>
         </DndContext>
       </main>
+
+      {/* 푸터 */}
+      <footer className="px-8 py-3 border-t border-white/10 flex justify-between items-center z-10 bg-white/5 backdrop-blur-lg shrink-0">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <div style={{ backgroundColor: settings.SuccessColor }} className="w-2 h-2 rounded-full animate-pulse shadow-[0_0_8px_rgba(255,255,255,0.5)]" />
+            <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest">SYSTEM ONLINE</span>
+          </div>
+          <div className="w-px h-3 bg-white/10" />
+          <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest">{settings?.Targets?.length || 0} TARGETS ACTIVE</span>
+        </div>
+        <div className="text-[10px] font-bold text-white/20 uppercase tracking-widest">v0.5.2 • ANTIGRAVITY</div>
+      </footer>
 
       {/* 설정 모달 */}
       <AnimatePresence>
@@ -312,18 +331,6 @@ export default function Dashboard() {
           </div>
         )}
       </AnimatePresence>
-
-      <footer className="px-8 py-4 border-t border-white/10 flex justify-between items-center z-10 bg-white/5 backdrop-blur-lg">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <div style={{ backgroundColor: settings.SuccessColor }} className="w-2.5 h-2.5 rounded-full animate-pulse shadow-[0_0_8px_rgba(255,255,255,0.5)]" />
-            <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest">SYSTEM ONLINE</span>
-          </div>
-          <div className="w-px h-3 bg-white/10" />
-          <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest">{settings?.Targets?.length || 0} TARGETS ACTIVE</span>
-        </div>
-        <div className="text-[10px] font-bold text-white/20 uppercase tracking-widest">v0.5.1 • ANTIGRAVITY</div>
-      </footer>
     </div>
   );
 }

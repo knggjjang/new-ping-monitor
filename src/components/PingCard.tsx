@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Area, AreaChart, ResponsiveContainer, YAxis } from "recharts";
-import { Activity, ShieldCheck, ShieldAlert, GripVertical } from "lucide-react";
+import { ShieldCheck, ShieldAlert, GripVertical } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
@@ -40,13 +40,11 @@ export default function PingCard({ name, host, results, colors }: PingCardProps)
     opacity: isDragging ? 0.6 : 1,
   };
 
-  // 결과 데이터가 없을 경우를 대비한 안전 장치
   const safeResults = results || [];
   const latest = safeResults[safeResults.length - 1];
   const isOnline = latest?.Status ?? false;
   const currentLatency = latest?.Latency ?? 0;
 
-  // 차트 데이터 준비
   const data = safeResults.map((r, i) => ({
     value: r.Latency ?? 0,
     index: i,
@@ -62,41 +60,41 @@ export default function PingCard({ name, host, results, colors }: PingCardProps)
         borderColor: currentColor,
         boxShadow: isDragging ? `0 20px 40px rgba(0,0,0,0.4), 0 0 20px ${currentColor}40` : `0 0 10px ${currentColor}20`,
       }}
-      className={`glass relative p-5 rounded-2xl overflow-hidden transition-all duration-500 border ${isDragging ? 'scale-105 ring-2 ring-neon-blue/30' : ''}`}
+      className={`glass relative p-3 sm:p-5 rounded-2xl overflow-hidden transition-all duration-500 border h-full flex flex-col ${isDragging ? 'scale-105 ring-2 ring-neon-blue/30' : ''}`}
     >
-      <div className="flex justify-between items-start mb-4">
-        <div className="flex items-start gap-3">
-          {/* 드래그 핸들 */}
+      <div className="flex justify-between items-start mb-2 sm:mb-4 shrink-0">
+        <div className="flex items-start gap-2 sm:gap-3">
           <div 
             {...attributes} 
             {...listeners} 
             className="mt-1 p-1 hover:bg-white/10 rounded cursor-grab active:cursor-grabbing text-white/20 hover:text-white/60 transition-colors"
           >
-            <GripVertical size={16} />
+            <GripVertical size={14} />
           </div>
-          <div>
-            <h3 className="text-lg font-bold tracking-tight text-white/90">{name}</h3>
-            <p className="text-xs font-mono text-white/40">{host}</p>
+          <div className="overflow-hidden">
+            <h3 className="text-sm sm:text-lg font-bold tracking-tight text-white/90 truncate">{name}</h3>
+            <p className="text-[10px] sm:text-xs font-mono text-white/40 truncate">{host}</p>
           </div>
         </div>
-        <div className={`p-2 rounded-full ${isOnline ? 'bg-green-500/10 text-neon-green' : 'bg-red-500/10 text-neon-red'}`}>
-          {isOnline ? <ShieldCheck size={20} /> : <ShieldAlert size={20} />}
+        <div className={`p-1.5 sm:p-2 rounded-full shrink-0 ${isOnline ? 'bg-green-500/10 text-neon-green' : 'bg-red-500/10 text-neon-red'}`}>
+          {isOnline ? <ShieldCheck size={16} /> : <ShieldAlert size={16} />}
         </div>
       </div>
 
-      <div className="flex items-baseline gap-2 mb-6 ml-8">
+      <div className="flex items-baseline gap-2 mb-2 sm:mb-4 ml-6 sm:ml-8 shrink-0">
         <span 
           style={{ color: currentColor, textShadow: `0 0 10px ${currentColor}40` }}
-          className="text-3xl font-black"
+          className="text-xl sm:text-3xl font-black"
         >
           {isOnline ? `${currentLatency}ms` : "연결 안됨"}
         </span>
-        <span className="text-[10px] font-bold text-white/20 tracking-widest uppercase">
+        <span className="text-[8px] sm:text-[10px] font-bold text-white/20 tracking-widest uppercase">
           지연시간
         </span>
       </div>
 
-      <div className="h-24 w-full -mx-5 -mb-5 mt-4 opacity-50">
+      {/* 차트 영역이 가변적으로 늘어나고 줄어들도록 설정 */}
+      <div className="flex-1 min-h-0 w-full -mx-3 sm:-mx-5 -mb-3 sm:-mb-5 mt-auto opacity-50">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data}>
             <defs>
