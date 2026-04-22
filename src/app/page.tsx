@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import { Settings, Plus, Zap, AlertCircle, Download, Upload, Check, Palette, Layout } from "lucide-react";
+import { Settings, Plus, Zap, AlertCircle, Download, Upload, Check, Palette, Layout, Trash2, X } from "lucide-react";
 import { 
   DndContext, 
   closestCenter, 
@@ -19,7 +19,7 @@ import {
   sortableKeyboardCoordinates, 
   rectSortingStrategy 
 } from "@dnd-kit/sortable";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import PingCard from "@/components/PingCard";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -59,11 +59,17 @@ export default function Dashboard() {
 
   const handleAddTarget = () => {
     if (newTarget.Name && newTarget.Host) {
+      // 중복 체크
+      if (settings.Targets.some(t => t.Host === newTarget.Host)) {
+        setActionMessage({ text: "이미 등록된 호스트입니다.", type: 'error' });
+        return;
+      }
       const updated = { ...settings, Targets: [...settings.Targets, newTarget] };
       setSettings(updated);
       invoke("update_settings", { newSettings: updated });
       setNewTarget({ Name: "", Host: "" });
       setIsAddOpen(false);
+      setActionMessage({ text: "새 대상을 추가했습니다.", type: 'success' });
     }
   };
 
@@ -71,6 +77,7 @@ export default function Dashboard() {
     const updated = { ...settings, Targets: settings.Targets.filter(t => t.Host !== host) };
     setSettings(updated);
     invoke("update_settings", { newSettings: updated });
+    setActionMessage({ text: "대상을 삭제했습니다.", type: 'success' });
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -111,8 +118,8 @@ export default function Dashboard() {
         <div style={{ backgroundColor: settings.FailureColor }} className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full blur-[120px] opacity-10 transition-colors duration-1000" />
       </div>
 
-      {/* 헤더 - 중복 드래그 영역 및 불필요한 여백 완전 제거 */}
-      <header className="flex flex-col px-8 py-8 z-10 select-none relative">
+      {/* 헤더 */}
+      <header className="flex flex-col px-8 py-10 z-10 select-none relative">
         <div className="flex items-center gap-4">
           <h1 className="text-3xl font-black tracking-tighter flex items-center gap-3">
             <Zap className="text-neon-blue fill-neon-blue/20" size={32} />
@@ -127,7 +134,7 @@ export default function Dashboard() {
           </button>
         </div>
         <p className="text-[10px] uppercase tracking-[0.3em] text-white/40 mt-1 font-bold">
-          네이티브 통합 테마 최적화 • v0.4.2
+          네이티브 통합 테마 최적화 • v0.4.4
         </p>
       </header>
 
@@ -135,27 +142,31 @@ export default function Dashboard() {
       <main className="flex-1 overflow-y-auto p-4 space-y-4 z-10 custom-scrollbar">
         <AnimatePresence>
           {actionMessage && (
-            <div className={`fixed top-24 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-2xl border backdrop-blur-xl animate-in slide-in-from-top duration-300 ${
-              actionMessage.type === 'success' ? 'bg-neon-green/10 border-neon-green/30 text-neon-green' : 'bg-neon-red/10 border-neon-red/30 text-neon-red'
+            <motion.div 
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className={`fixed top-24 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-2xl border backdrop-blur-xl shadow-2xl ${
+              actionMessage.type === 'success' ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-red-500/10 border-red-500/30 text-red-400'
             }`}>
               <div className="flex items-center gap-3">
                 {actionMessage.type === 'success' ? <Check size={18} /> : <AlertCircle size={18} />}
                 <span className="text-sm font-bold">{actionMessage.text}</span>
               </div>
-            </div>
+            </motion.div>
           )}
         </AnimatePresence>
 
         {engineError && (
-          <div className="p-4 rounded-xl bg-neon-red/10 border border-neon-red/30 flex items-center justify-between animate-pulse mb-4 shadow-lg shadow-neon-red/5">
+          <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-between animate-pulse mb-4 shadow-lg shadow-red-500/5">
             <div className="flex items-center gap-3">
-              <AlertCircle className="text-neon-red" size={24} />
+              <AlertCircle className="text-red-500" size={24} />
               <div>
-                <p className="text-sm font-bold text-neon-red">시스템 오류</p>
-                <p className="text-xs text-neon-red/80">{engineError}</p>
+                <p className="text-sm font-bold text-red-500">시스템 오류</p>
+                <p className="text-xs text-red-500/80">{engineError}</p>
               </div>
             </div>
-            <button onClick={() => window.location.reload()} className="px-4 py-2 rounded-lg bg-neon-red/20 text-xs font-bold hover:bg-neon-red/30 transition-colors">다시 시도</button>
+            <button onClick={() => window.location.reload()} className="px-4 py-2 rounded-lg bg-red-500/20 text-xs font-bold hover:bg-red-500/30 transition-colors">다시 시도</button>
           </div>
         )}
 
@@ -176,13 +187,49 @@ export default function Dashboard() {
         </DndContext>
       </main>
 
+      {/* 대상 추가 모달 */}
+      <AnimatePresence>
+        {isAddOpen && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="glass w-full max-w-sm p-8 rounded-3xl border border-white/10 space-y-6 shadow-2xl"
+            >
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-black tracking-tighter uppercase">대상 <span className="text-neon-blue">추가</span></h2>
+                <button onClick={() => setIsAddOpen(false)} className="text-white/40 hover:text-white transition-colors"><X size={20} /></button>
+              </div>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">표시 이름</label>
+                  <input type="text" placeholder="예: 구글" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-neon-blue/50 transition-colors" value={newTarget.Name} onChange={(e) => setNewTarget({...newTarget, Name: e.target.value})} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">호스트 주소 (IP 또는 도메인)</label>
+                  <input type="text" placeholder="예: 8.8.8.8" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-neon-blue/50 transition-colors" value={newTarget.Host} onChange={(e) => setNewTarget({...newTarget, Host: e.target.value})} />
+                </div>
+              </div>
+              <button onClick={handleAddTarget} className="w-full px-6 py-4 rounded-xl font-bold bg-neon-blue/20 text-neon-blue border border-neon-blue/30 hover:bg-neon-blue/30 transition-all">추가하기</button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* 설정 모달 */}
       <AnimatePresence>
         {isSettingsOpen && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
-            <div className="glass w-full max-w-md p-8 rounded-3xl border border-white/10 space-y-6 animate-in zoom-in duration-200 shadow-2xl">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="glass w-full max-w-md p-8 rounded-3xl border border-white/10 space-y-6 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
               <h2 className="text-2xl font-black tracking-tighter uppercase">앱 <span className="text-neon-pink">설정</span></h2>
-              <div className="space-y-6">
+              
+              <div className="flex-1 overflow-y-auto pr-2 space-y-6 custom-scrollbar">
                 <div className="space-y-2">
                   <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">핑 측정 주기 (초)</label>
                   <input type="number" min="1" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-neon-pink/50 transition-colors" value={settings.Interval} onChange={(e) => {
@@ -192,6 +239,33 @@ export default function Dashboard() {
                     invoke("update_settings", { newSettings: updated });
                   }} />
                 </div>
+
+                {/* 대상 삭제 리스트 */}
+                <div className="space-y-3">
+                  <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">모니터링 대상 관리</label>
+                  <div className="space-y-2">
+                    {settings.Targets.length === 0 ? (
+                      <p className="text-xs text-white/20 text-center py-4 border border-dashed border-white/5 rounded-xl">등록된 대상이 없습니다.</p>
+                    ) : (
+                      settings.Targets.map((target) => (
+                        <div key={target.Host} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5 group hover:border-red-500/30 transition-all">
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold">{target.Name}</span>
+                            <span className="text-[10px] text-white/40">{target.Host}</span>
+                          </div>
+                          <button 
+                            onClick={() => removeTarget(target.Host)}
+                            className="p-2 rounded-lg hover:bg-red-500/20 text-white/20 hover:text-red-500 transition-all"
+                            title="삭제"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
                 <div className="space-y-4">
                   <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold flex items-center gap-2"><Palette size={12} /> 테마 커스터마이징</label>
                   <div className="grid grid-cols-1 gap-4 bg-white/5 p-4 rounded-2xl border border-white/5">
@@ -221,6 +295,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                 </div>
+
                 <div className="grid grid-cols-2 gap-3 pt-2">
                   <button onClick={handleImport} className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-xs font-bold hover:bg-white/10 transition-all">
                     <Download size={14} className="text-neon-blue" /> 설정 불러오기
@@ -230,8 +305,9 @@ export default function Dashboard() {
                   </button>
                 </div>
               </div>
-              <button onClick={() => setIsSettingsOpen(false)} className="w-full px-6 py-4 rounded-xl font-bold bg-white/10 text-white mt-4 border border-white/5 hover:bg-white/20 transition-all">설정 닫기</button>
-            </div>
+
+              <button onClick={() => setIsSettingsOpen(false)} className="w-full px-6 py-4 rounded-xl font-bold bg-white/10 text-white mt-4 border border-white/5 hover:bg-white/20 transition-all shrink-0">설정 닫기</button>
+            </motion.div>
           </div>
         )}
       </AnimatePresence>
@@ -245,7 +321,7 @@ export default function Dashboard() {
           <div className="w-px h-3 bg-white/10" />
           <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest">{settings?.Targets?.length || 0} TARGETS ACTIVE</span>
         </div>
-        <div className="text-[10px] font-bold text-white/20 uppercase tracking-widest">v0.4.2 • ANTIGRAVITY</div>
+        <div className="text-[10px] font-bold text-white/20 uppercase tracking-widest">v0.4.4 • ANTIGRAVITY</div>
       </footer>
     </div>
   );
