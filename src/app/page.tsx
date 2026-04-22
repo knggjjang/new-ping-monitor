@@ -137,12 +137,12 @@ export default function Dashboard() {
           </button>
         </div>
         <p className="text-[10px] uppercase tracking-[0.3em] text-white/40 mt-1 font-bold">
-          통합 관리 시스템 최적화 • v0.5.0
+          유동적 레이아웃 최적화 • v0.5.1
         </p>
       </header>
 
-      {/* 메인 콘텐츠 */}
-      <main className="flex-1 overflow-y-auto p-4 space-y-4 z-10 custom-scrollbar">
+      {/* 메인 콘텐츠 - 유동적 그리드 적용 */}
+      <main className="flex-1 overflow-y-auto px-8 pb-10 space-y-4 z-10 custom-scrollbar">
         <AnimatePresence>
           {actionMessage && (
             <motion.div 
@@ -175,7 +175,7 @@ export default function Dashboard() {
 
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={settings.Targets.map(t => t.Host)} strategy={rectSortingStrategy}>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-24">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(350px,1fr))] gap-6 pb-24">
               {settings?.Targets?.map((target) => (
                 <PingCard key={target.Host} name={target.Name} host={target.Host} results={results[target.Host] || []} colors={{ online: settings.SuccessColor, offline: settings.FailureColor }} />
               ))}
@@ -190,7 +190,7 @@ export default function Dashboard() {
         </DndContext>
       </main>
 
-      {/* 설정 모달 (통합 관리 인터페이스) */}
+      {/* 설정 모달 */}
       <AnimatePresence>
         {isSettingsOpen && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
@@ -206,7 +206,6 @@ export default function Dashboard() {
               </div>
               
               <div className="flex-1 overflow-y-auto pr-4 space-y-8 custom-scrollbar">
-                {/* 1. 대상 추가 섹션 */}
                 <section className="space-y-3">
                   <label className="text-[10px] uppercase tracking-widest text-neon-blue font-black flex items-center gap-2">
                     <Plus size={12} /> 새 대상 추가
@@ -220,7 +219,6 @@ export default function Dashboard() {
                   </div>
                 </section>
 
-                {/* 2. 기존 대상 관리 섹션 (수정 및 삭제) */}
                 <section className="space-y-3">
                   <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold flex items-center gap-2">
                     <Edit3 size={12} /> 모니터링 대상 리스트 관리
@@ -258,7 +256,6 @@ export default function Dashboard() {
                   </div>
                 </section>
 
-                {/* 3. 시스템 설정 */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-3">
                     <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">측정 주기 (초)</label>
@@ -325,7 +322,7 @@ export default function Dashboard() {
           <div className="w-px h-3 bg-white/10" />
           <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest">{settings?.Targets?.length || 0} TARGETS ACTIVE</span>
         </div>
-        <div className="text-[10px] font-bold text-white/20 uppercase tracking-widest">v0.5.0 • ANTIGRAVITY</div>
+        <div className="text-[10px] font-bold text-white/20 uppercase tracking-widest">v0.5.1 • ANTIGRAVITY</div>
       </footer>
     </div>
   );
