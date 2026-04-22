@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import { Settings, Plus, Zap, AlertCircle, Download, Upload, Check, Palette, Layout, Trash2, X } from "lucide-react";
+import { Settings, Plus, Zap, AlertCircle, Download, Upload, Check, Palette, Layout, Trash2, X, Edit3 } from "lucide-react";
 import { 
   DndContext, 
   closestCenter, 
@@ -26,9 +26,7 @@ import { useAppStore } from "@/store/useAppStore";
 export default function Dashboard() {
   const { settings, results, setResults, setSettings } = useAppStore();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isAddOpen, setIsAddOpen] = useState(false);
   const [newTarget, setNewTarget] = useState({ Name: "", Host: "" });
-  const [latestRelease, setLatestRelease] = useState<any>(null);
   const [engineError, setEngineError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [actionMessage, setActionMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
@@ -43,7 +41,6 @@ export default function Dashboard() {
     invoke("get_settings").then((s: any) => { if (s) setSettings(s); });
     invoke("get_ping_results").then((r: any) => { if (r) setResults(r); });
     invoke("get_engine_error").then((err: any) => { if (err) setEngineError(err); });
-    invoke("get_latest_release").then((res: any) => setLatestRelease(res)).catch((err) => console.error(err));
     const unlisten = listen("ping-update", (event: any) => { setResults(event.payload as any); });
     return () => { unlisten.then((fn) => fn()); };
   }, []);
@@ -59,7 +56,6 @@ export default function Dashboard() {
 
   const handleAddTarget = () => {
     if (newTarget.Name && newTarget.Host) {
-      // 중복 체크
       if (settings.Targets.some(t => t.Host === newTarget.Host)) {
         setActionMessage({ text: "이미 등록된 호스트입니다.", type: 'error' });
         return;
@@ -68,9 +64,16 @@ export default function Dashboard() {
       setSettings(updated);
       invoke("update_settings", { newSettings: updated });
       setNewTarget({ Name: "", Host: "" });
-      setIsAddOpen(false);
       setActionMessage({ text: "새 대상을 추가했습니다.", type: 'success' });
     }
+  };
+
+  const updateTargetInfo = (index: number, field: 'Name' | 'Host', value: string) => {
+    const newTargets = [...settings.Targets];
+    newTargets[index] = { ...newTargets[index], [field]: value };
+    const updated = { ...settings, Targets: newTargets };
+    setSettings(updated);
+    invoke("update_settings", { newSettings: updated });
   };
 
   const removeTarget = (host: string) => {
@@ -134,7 +137,7 @@ export default function Dashboard() {
           </button>
         </div>
         <p className="text-[10px] uppercase tracking-[0.3em] text-white/40 mt-1 font-bold">
-          네이티브 통합 테마 최적화 • v0.4.4
+          통합 관리 시스템 최적화 • v0.5.0
         </p>
       </header>
 
@@ -176,129 +179,130 @@ export default function Dashboard() {
               {settings?.Targets?.map((target) => (
                 <PingCard key={target.Host} name={target.Name} host={target.Host} results={results[target.Host] || []} colors={{ online: settings.SuccessColor, offline: settings.FailureColor }} />
               ))}
-              <button onClick={() => setIsAddOpen(true)} className="glass border-dashed border-2 border-white/10 flex flex-col items-center justify-center p-8 rounded-2xl hover:border-neon-blue/40 hover:bg-neon-blue/5 transition-all group min-h-[220px]">
-                <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                  <Plus size={24} className="text-white/40 group-hover:text-neon-blue" />
+              {settings.Targets.length === 0 && (
+                <div className="col-span-full py-20 flex flex-col items-center justify-center border-2 border-dashed border-white/5 rounded-3xl">
+                  <p className="text-white/20 font-bold">등록된 모니터링 대상이 없습니다.</p>
+                  <button onClick={() => setIsSettingsOpen(true)} className="mt-4 text-xs font-bold text-neon-blue hover:underline">설정에서 추가하기</button>
                 </div>
-                <span className="text-sm font-bold text-white/30 group-hover:text-white/60">새 모니터링 대상 추가</span>
-              </button>
+              )}
             </div>
           </SortableContext>
         </DndContext>
       </main>
 
-      {/* 대상 추가 모달 */}
-      <AnimatePresence>
-        {isAddOpen && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="glass w-full max-w-sm p-8 rounded-3xl border border-white/10 space-y-6 shadow-2xl"
-            >
-              <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-black tracking-tighter uppercase">대상 <span className="text-neon-blue">추가</span></h2>
-                <button onClick={() => setIsAddOpen(false)} className="text-white/40 hover:text-white transition-colors"><X size={20} /></button>
-              </div>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">표시 이름</label>
-                  <input type="text" placeholder="예: 구글" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-neon-blue/50 transition-colors" value={newTarget.Name} onChange={(e) => setNewTarget({...newTarget, Name: e.target.value})} />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">호스트 주소 (IP 또는 도메인)</label>
-                  <input type="text" placeholder="예: 8.8.8.8" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-neon-blue/50 transition-colors" value={newTarget.Host} onChange={(e) => setNewTarget({...newTarget, Host: e.target.value})} />
-                </div>
-              </div>
-              <button onClick={handleAddTarget} className="w-full px-6 py-4 rounded-xl font-bold bg-neon-blue/20 text-neon-blue border border-neon-blue/30 hover:bg-neon-blue/30 transition-all">추가하기</button>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* 설정 모달 */}
+      {/* 설정 모달 (통합 관리 인터페이스) */}
       <AnimatePresence>
         {isSettingsOpen && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
             <motion.div 
-              initial={{ opacity: 0, scale: 0.9 }}
+              initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="glass w-full max-w-md p-8 rounded-3xl border border-white/10 space-y-6 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="glass w-full max-w-2xl p-8 rounded-3xl border border-white/10 space-y-6 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
             >
-              <h2 className="text-2xl font-black tracking-tighter uppercase">앱 <span className="text-neon-pink">설정</span></h2>
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-black tracking-tighter uppercase">앱 <span className="text-neon-pink">설정 & 관리</span></h2>
+                <button onClick={() => setIsSettingsOpen(false)} className="text-white/40 hover:text-white transition-colors"><X size={20} /></button>
+              </div>
               
-              <div className="flex-1 overflow-y-auto pr-2 space-y-6 custom-scrollbar">
-                <div className="space-y-2">
-                  <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">핑 측정 주기 (초)</label>
-                  <input type="number" min="1" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-neon-pink/50 transition-colors" value={settings.Interval} onChange={(e) => {
-                    const val = Math.max(1, parseInt(e.target.value) || 1);
-                    const updated = { ...settings, Interval: val };
-                    setSettings(updated);
-                    invoke("update_settings", { newSettings: updated });
-                  }} />
-                </div>
+              <div className="flex-1 overflow-y-auto pr-4 space-y-8 custom-scrollbar">
+                {/* 1. 대상 추가 섹션 */}
+                <section className="space-y-3">
+                  <label className="text-[10px] uppercase tracking-widest text-neon-blue font-black flex items-center gap-2">
+                    <Plus size={12} /> 새 대상 추가
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-white/5 p-4 rounded-2xl border border-white/5">
+                    <input type="text" placeholder="이름 (예: 구글)" className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm outline-none focus:border-neon-blue/50" value={newTarget.Name} onChange={(e) => setNewTarget({...newTarget, Name: e.target.value})} />
+                    <div className="flex gap-2">
+                      <input type="text" placeholder="주소 (예: 8.8.8.8)" className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm outline-none focus:border-neon-blue/50" value={newTarget.Host} onChange={(e) => setNewTarget({...newTarget, Host: e.target.value})} />
+                      <button onClick={handleAddTarget} className="bg-neon-blue/20 text-neon-blue p-2 rounded-xl border border-neon-blue/30 hover:bg-neon-blue/30 transition-all"><Plus size={20} /></button>
+                    </div>
+                  </div>
+                </section>
 
-                {/* 대상 삭제 리스트 */}
-                <div className="space-y-3">
-                  <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">모니터링 대상 관리</label>
-                  <div className="space-y-2">
+                {/* 2. 기존 대상 관리 섹션 (수정 및 삭제) */}
+                <section className="space-y-3">
+                  <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold flex items-center gap-2">
+                    <Edit3 size={12} /> 모니터링 대상 리스트 관리
+                  </label>
+                  <div className="space-y-3">
                     {settings.Targets.length === 0 ? (
-                      <p className="text-xs text-white/20 text-center py-4 border border-dashed border-white/5 rounded-xl">등록된 대상이 없습니다.</p>
+                      <p className="text-xs text-white/10 text-center py-8 bg-white/5 rounded-2xl border border-dashed border-white/5">등록된 대상이 없습니다.</p>
                     ) : (
-                      settings.Targets.map((target) => (
-                        <div key={target.Host} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5 group hover:border-red-500/30 transition-all">
-                          <div className="flex flex-col">
-                            <span className="text-xs font-bold">{target.Name}</span>
-                            <span className="text-[10px] text-white/40">{target.Host}</span>
-                          </div>
+                      settings.Targets.map((target, idx) => (
+                        <div key={target.Host} className="grid grid-cols-1 sm:grid-cols-[1fr,1.5fr,auto] gap-3 items-center p-3 bg-white/5 rounded-2xl border border-white/5 hover:border-white/10 transition-all">
+                          <input 
+                            type="text" 
+                            className="bg-transparent border-b border-white/5 px-2 py-1 text-xs font-bold focus:border-neon-pink/50 outline-none"
+                            value={target.Name}
+                            onChange={(e) => updateTargetInfo(idx, 'Name', e.target.value)}
+                            placeholder="이름"
+                          />
+                          <input 
+                            type="text" 
+                            className="bg-transparent border-b border-white/5 px-2 py-1 text-xs text-white/50 focus:border-neon-pink/50 outline-none"
+                            value={target.Host}
+                            onChange={(e) => updateTargetInfo(idx, 'Host', e.target.value)}
+                            placeholder="주소"
+                          />
                           <button 
                             onClick={() => removeTarget(target.Host)}
-                            className="p-2 rounded-lg hover:bg-red-500/20 text-white/20 hover:text-red-500 transition-all"
+                            className="p-2 rounded-xl hover:bg-red-500/20 text-white/10 hover:text-red-500 transition-all"
                             title="삭제"
                           >
-                            <Trash2 size={16} />
+                            <Trash2 size={18} />
                           </button>
                         </div>
                       ))
                     )}
                   </div>
-                </div>
+                </section>
 
-                <div className="space-y-4">
-                  <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold flex items-center gap-2"><Palette size={12} /> 테마 커스터마이징</label>
-                  <div className="grid grid-cols-1 gap-4 bg-white/5 p-4 rounded-2xl border border-white/5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-white/60 font-bold flex items-center gap-2"><div className="w-2 h-2 rounded-full" style={{ backgroundColor: settings.SuccessColor }} /> 온라인 테마</span>
-                      <input type="color" value={settings.SuccessColor} onChange={(e) => {
-                        const updated = { ...settings, SuccessColor: e.target.value };
-                        setSettings(updated);
-                        invoke("update_settings", { newSettings: updated });
-                      }} className="w-10 h-10 rounded-xl overflow-hidden bg-transparent cursor-pointer border-none" />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-white/60 font-bold flex items-center gap-2"><div className="w-2 h-2 rounded-full" style={{ backgroundColor: settings.FailureColor }} /> 오프라인 테마</span>
-                      <input type="color" value={settings.FailureColor} onChange={(e) => {
-                        const updated = { ...settings, FailureColor: e.target.value };
-                        setSettings(updated);
-                        invoke("update_settings", { newSettings: updated });
-                      }} className="w-10 h-10 rounded-xl overflow-hidden bg-transparent cursor-pointer border-none" />
-                    </div>
-                    <div className="flex items-center justify-between border-t border-white/10 pt-3">
-                      <span className="text-xs text-white/60 font-bold flex items-center gap-2"><Layout size={14} className="text-white/40" /> 앱 배경 색상</span>
-                      <input type="color" value={settings.BackgroundColor || "#050505"} onChange={(e) => {
-                        const updated = { ...settings, BackgroundColor: e.target.value };
-                        setSettings(updated);
-                        invoke("update_settings", { newSettings: updated });
-                      }} className="w-10 h-10 rounded-xl overflow-hidden bg-transparent cursor-pointer border-none" />
+                {/* 3. 시스템 설정 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">측정 주기 (초)</label>
+                    <input type="number" min="1" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-neon-pink/50" value={settings.Interval} onChange={(e) => {
+                      const val = Math.max(1, parseInt(e.target.value) || 1);
+                      const updated = { ...settings, Interval: val };
+                      setSettings(updated);
+                      invoke("update_settings", { newSettings: updated });
+                    }} />
+                  </div>
+                  <div className="space-y-4">
+                    <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold flex items-center gap-2"><Palette size={12} /> 테마 컬러</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="flex flex-col items-center gap-1">
+                        <input type="color" value={settings.SuccessColor} onChange={(e) => {
+                          const updated = { ...settings, SuccessColor: e.target.value };
+                          setSettings(updated);
+                          invoke("update_settings", { newSettings: updated });
+                        }} className="w-full h-8 rounded-lg overflow-hidden bg-transparent cursor-pointer border-none" />
+                        <span className="text-[8px] text-white/40 uppercase">Online</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-1">
+                        <input type="color" value={settings.FailureColor} onChange={(e) => {
+                          const updated = { ...settings, FailureColor: e.target.value };
+                          setSettings(updated);
+                          invoke("update_settings", { newSettings: updated });
+                        }} className="w-full h-8 rounded-lg overflow-hidden bg-transparent cursor-pointer border-none" />
+                        <span className="text-[8px] text-white/40 uppercase">Offline</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-1">
+                        <input type="color" value={settings.BackgroundColor || "#050505"} onChange={(e) => {
+                          const updated = { ...settings, BackgroundColor: e.target.value };
+                          setSettings(updated);
+                          invoke("update_settings", { newSettings: updated });
+                        }} className="w-full h-8 rounded-lg overflow-hidden bg-transparent cursor-pointer border-none" />
+                        <span className="text-[8px] text-white/40 uppercase">BG</span>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 pt-2">
+                <div className="grid grid-cols-2 gap-3 pt-4 border-t border-white/5">
                   <button onClick={handleImport} className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-xs font-bold hover:bg-white/10 transition-all">
-                    <Download size={14} className="text-neon-blue" /> 설정 불러오기
+                    <Download size={14} className="text-neon-blue" /> 설정 가져오기
                   </button>
                   <button onClick={handleExport} className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-xs font-bold hover:bg-white/10 transition-all">
                     <Upload size={14} className="text-neon-pink" /> 설정 내보내기
@@ -306,7 +310,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <button onClick={() => setIsSettingsOpen(false)} className="w-full px-6 py-4 rounded-xl font-bold bg-white/10 text-white mt-4 border border-white/5 hover:bg-white/20 transition-all shrink-0">설정 닫기</button>
+              <button onClick={() => setIsSettingsOpen(false)} className="w-full px-6 py-4 rounded-2xl font-bold bg-white/10 text-white mt-4 border border-white/5 hover:bg-white/20 transition-all shrink-0">설정 닫기</button>
             </motion.div>
           </div>
         )}
@@ -321,7 +325,7 @@ export default function Dashboard() {
           <div className="w-px h-3 bg-white/10" />
           <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest">{settings?.Targets?.length || 0} TARGETS ACTIVE</span>
         </div>
-        <div className="text-[10px] font-bold text-white/20 uppercase tracking-widest">v0.4.4 • ANTIGRAVITY</div>
+        <div className="text-[10px] font-bold text-white/20 uppercase tracking-widest">v0.5.0 • ANTIGRAVITY</div>
       </footer>
     </div>
   );
