@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import { Settings, Plus, Zap, AlertCircle, Download, Upload, Check, Palette, Trash2, X, Edit3 } from "lucide-react";
+import { Settings, Plus, Zap, AlertCircle, Download, Upload, Check, Palette, Trash2, X, Edit3, Activity } from "lucide-react";
 import { 
   DndContext, 
   closestCenter, 
@@ -24,8 +24,9 @@ import PingCard from "@/components/PingCard";
 import { useAppStore, type AppSettings, type PingResult } from "@/store/useAppStore";
 
 export default function Dashboard() {
-  const { settings, results, setResults, setSettings } = useAppStore();
+  const { settings, results, setResults, setSettings, logs, clearLogs } = useAppStore();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isLogOpen, setIsLogOpen] = useState(false);
   const [newTarget, setNewTarget] = useState({ Name: "", Host: "" });
   const [mounted, setMounted] = useState(false);
   const [actionMessage, setActionMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
@@ -40,7 +41,41 @@ export default function Dashboard() {
     invoke("get_settings").then((s: unknown) => { if (s) setSettings(s as AppSettings); });
     invoke("get_ping_results").then((r: unknown) => { if (r) setResults(r as Record<string, PingResult[]>); });
     invoke("get_engine_error").then((err: unknown) => { if (err) console.error("Engine error:", err); });
-    const unlisten = listen("ping-update", (event: { payload: unknown }) => { setResults(event.payload as Record<string, PingResult[]>); });
+    
+    const unlisten = listen("ping-update", (event: { payload: unknown }) => { 
+      const newResults = event.payload as Record<string, PingResult[]>;
+      
+      // 로그 수집 로직
+      const currentState = useAppStore.getState();
+      const currentLogs = currentState.logs;
+      
+      Object.entries(newResults).forEach(([host, hostResults]) => {
+        if (hostResults.length === 0) return;
+        const latest = hostResults[hostResults.length - 1];
+        const isOnline = latest.Status;
+        const timestamp = new Date(latest.Timestamp).getTime();
+        
+        const ongoingLog = currentLogs.find(l => l.host === host && l.endTime === null);
+        
+        if (!isOnline && !ongoingLog) {
+          // 이제 막 오프라인이 된 경우
+          const target = currentState.settings.Targets.find(t => t.Host === host);
+          currentState.addLog({
+            id: Date.now().toString() + "-" + Math.random().toString(36).substr(2, 9),
+            host,
+            name: target?.Name || host,
+            startTime: timestamp,
+            endTime: null
+          });
+        } else if (isOnline && ongoingLog) {
+          // 다시 온라인으로 복구된 경우
+          currentState.updateLogEndTime(ongoingLog.id, timestamp);
+        }
+      });
+
+      setResults(newResults); 
+    });
+
     return () => { unlisten.then((fn) => fn()); };
   }, [setResults, setSettings]);
 
@@ -143,13 +178,25 @@ export default function Dashboard() {
             <Zap className="text-neon-blue fill-neon-blue/20" size={28} />
             뉴 핑 모니터 <span className="text-white/20">대시보드</span>
           </h1>
-          <button 
-            className="glass p-2 rounded-full hover:bg-white/10 transition-all shadow-xl border-white/10 hover:scale-110 active:scale-95" 
-            onClick={() => setIsSettingsOpen(true)}
-            title="환경 설정"
-          >
-            <Settings size={18} className="text-white/60" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              className="glass p-2 rounded-full hover:bg-white/10 transition-all shadow-xl border-white/10 hover:scale-110 active:scale-95 relative" 
+              onClick={() => setIsLogOpen(true)}
+              title="연결 해제 기록"
+            >
+              <Activity size={18} className="text-white/60" />
+              {logs.some(l => l.endTime === null) && (
+                <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-neon-red rounded-full border-2 border-[#050505] animate-pulse"></span>
+              )}
+            </button>
+            <button 
+              className="glass p-2 rounded-full hover:bg-white/10 transition-all shadow-xl border-white/10 hover:scale-110 active:scale-95" 
+              onClick={() => setIsSettingsOpen(true)}
+              title="환경 설정"
+            >
+              <Settings size={18} className="text-white/60" />
+            </button>
+          </div>
         </div>
         <p className="text-[10px] uppercase tracking-[0.3em] text-white/40 mt-1 font-bold">
           스크롤리스 풀 스크린 최적화 • v0.5.2
@@ -180,7 +227,13 @@ export default function Dashboard() {
             <div className={`grid ${gridCols} gap-4 h-full w-full`}>
               {settings?.Targets?.map((target) => (
                 <div key={target.Host} className="h-full min-h-0">
-                  <PingCard name={target.Name} host={target.Host} results={results[target.Host] || []} colors={{ online: settings.SuccessColor, offline: settings.FailureColor }} />
+                  <PingCard 
+                    name={target.Name} 
+                    host={target.Host} 
+                    results={results[target.Host] || []} 
+                    colors={{ online: settings.SuccessColor, offline: settings.FailureColor }} 
+                    interval={settings.Interval}
+                  />
                 </div>
               ))}
               {settings.Targets.length === 0 && (
@@ -206,6 +259,59 @@ export default function Dashboard() {
         </div>
         <div className="text-[10px] font-bold text-white/20 uppercase tracking-widest">v0.5.2 • ANTIGRAVITY</div>
       </footer>
+
+      {/* 로그 모달 */}
+      <AnimatePresence>
+        {isLogOpen && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="glass w-full max-w-2xl p-8 rounded-3xl border border-white/10 space-y-6 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="flex justify-between items-center shrink-0">
+                <h2 className="text-2xl font-black tracking-tighter uppercase flex items-center gap-3">
+                  <Activity className="text-neon-red" size={24} /> 
+                  장애 <span className="text-white/60">기록</span>
+                </h2>
+                <div className="flex items-center gap-3">
+                  <button onClick={() => { clearLogs(); setActionMessage({ text: "로그가 초기화되었습니다.", type: 'success' }); }} className="text-[10px] uppercase font-bold text-red-400 hover:text-red-300 transition-colors px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 rounded-full flex items-center gap-1 border border-red-500/20"><Trash2 size={12} /> 전체 삭제</button>
+                  <button onClick={() => setIsLogOpen(false)} className="text-white/40 hover:text-white transition-colors"><X size={20} /></button>
+                </div>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto pr-4 space-y-3 custom-scrollbar">
+                {logs.length === 0 ? (
+                  <p className="text-xs text-white/20 text-center py-10 bg-white/5 rounded-2xl border border-dashed border-white/5 font-bold">기록된 연결 해제 내역이 없습니다.</p>
+                ) : (
+                  [...logs].sort((a, b) => b.startTime - a.startTime).map(log => {
+                    const startStr = new Date(log.startTime).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    const endStr = log.endTime ? new Date(log.endTime).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : "현재 끊김";
+                    
+                    return (
+                      <div key={log.id} className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5 hover:border-white/10 transition-colors">
+                        <div className="flex items-center gap-4">
+                          <div className={`p-2 rounded-full ${log.endTime ? 'bg-white/10 text-white/40' : 'bg-red-500/20 text-neon-red animate-pulse'}`}>
+                            <AlertCircle size={16} />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-bold text-white/90">[{log.name}]</h3>
+                            <p className="text-xs text-white/40 font-mono mt-1">{startStr} ~ {endStr}</p>
+                          </div>
+                        </div>
+                        {!log.endTime && (
+                          <span className="text-[10px] font-bold text-neon-red px-2 py-1 bg-red-500/10 rounded-full border border-red-500/20">OFFLINE</span>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* 설정 모달 */}
       <AnimatePresence>

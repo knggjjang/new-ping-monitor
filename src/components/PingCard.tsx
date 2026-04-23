@@ -21,9 +21,10 @@ interface PingCardProps {
     online: string;
     offline: string;
   };
+  interval: number;
 }
 
-export default function PingCard({ name, host, results, colors }: PingCardProps) {
+export default function PingCard({ name, host, results, colors, interval }: PingCardProps) {
   const {
     attributes,
     listeners,
@@ -76,7 +77,10 @@ export default function PingCard({ name, host, results, colors }: PingCardProps)
             <p className="text-[10px] sm:text-xs font-mono text-white/40 truncate">{host}</p>
           </div>
         </div>
-        <div className={`p-1.5 sm:p-2 rounded-full shrink-0 ${isOnline ? 'bg-green-500/10 text-neon-green' : 'bg-red-500/10 text-neon-red'}`}>
+        <div 
+          className={`p-1.5 sm:p-2 rounded-full shrink-0 animate-ping-flash ${isOnline ? 'bg-green-500/10 text-neon-green' : 'bg-red-500/10 text-neon-red'}`}
+          style={{ '--ping-interval': `${interval}s` } as React.CSSProperties}
+        >
           {isOnline ? <ShieldCheck size={16} /> : <ShieldAlert size={16} />}
         </div>
       </div>
