@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import { Settings, Plus, Zap, AlertCircle, Download, Upload, Check, Palette, Layout, Trash2, X, Edit3 } from "lucide-react";
+import { Settings, Plus, Zap, AlertCircle, Download, Upload, Check, Palette, Trash2, X, Edit3 } from "lucide-react";
 import { 
   DndContext, 
   closestCenter, 
@@ -21,13 +21,12 @@ import {
 } from "@dnd-kit/sortable";
 import { AnimatePresence, motion } from "framer-motion";
 import PingCard from "@/components/PingCard";
-import { useAppStore } from "@/store/useAppStore";
+import { useAppStore, type AppSettings, type PingResult } from "@/store/useAppStore";
 
 export default function Dashboard() {
   const { settings, results, setResults, setSettings } = useAppStore();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [newTarget, setNewTarget] = useState({ Name: "", Host: "" });
-  const [engineError, setEngineError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [actionMessage, setActionMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
 
@@ -38,12 +37,12 @@ export default function Dashboard() {
 
   useEffect(() => {
     setMounted(true);
-    invoke("get_settings").then((s: any) => { if (s) setSettings(s); });
-    invoke("get_ping_results").then((r: any) => { if (r) setResults(r); });
-    invoke("get_engine_error").then((err: any) => { if (err) setEngineError(err); });
-    const unlisten = listen("ping-update", (event: any) => { setResults(event.payload as any); });
+    invoke("get_settings").then((s: unknown) => { if (s) setSettings(s as AppSettings); });
+    invoke("get_ping_results").then((r: unknown) => { if (r) setResults(r as Record<string, PingResult[]>); });
+    invoke("get_engine_error").then((err: unknown) => { if (err) console.error("Engine error:", err); });
+    const unlisten = listen("ping-update", (event: { payload: unknown }) => { setResults(event.payload as Record<string, PingResult[]>); });
     return () => { unlisten.then((fn) => fn()); };
-  }, []);
+  }, [setResults, setSettings]);
 
   useEffect(() => {
     if (actionMessage) {
@@ -97,7 +96,7 @@ export default function Dashboard() {
 
   const handleImport = async () => {
     try {
-      const newSettings: any = await invoke("import_settings");
+      const newSettings = await invoke<AppSettings>("import_settings");
       setSettings(newSettings);
       setActionMessage({ text: "설정을 성공적으로 불러왔습니다.", type: 'success' });
     } catch (e) { if (e !== "취소됨") setActionMessage({ text: `불러오기 실패: ${e}`, type: 'error' }); }
@@ -113,7 +112,7 @@ export default function Dashboard() {
   // 카드 개수에 따른 최적의 그리드 계산
   const targetCount = settings.Targets.length;
   let gridCols = "grid-cols-1";
-  let gridRows = "";
+
 
   if (targetCount > 0) {
     if (targetCount === 1) gridCols = "grid-cols-1";
@@ -122,9 +121,8 @@ export default function Dashboard() {
     else if (targetCount <= 6) gridCols = "grid-cols-2 lg:grid-cols-3";
     else gridCols = "grid-cols-2 md:grid-cols-3 lg:grid-cols-4";
 
-    // 행 높이 자동 배분을 위한 동적 스타일
-    const rows = Math.ceil(targetCount / (targetCount <= 2 ? (targetCount === 1 ? 1 : 2) : (targetCount <= 6 ? (targetCount <= 4 ? 2 : 3) : 4)));
-    gridRows = `grid-rows-${rows}`;
+    // 행 높이 자동 배분 로직
+    Math.ceil(targetCount / (targetCount <= 2 ? (targetCount === 1 ? 1 : 2) : (targetCount <= 6 ? (targetCount <= 4 ? 2 : 3) : 4)));
   }
 
   return (

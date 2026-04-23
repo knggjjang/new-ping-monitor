@@ -6,7 +6,7 @@ interface Target {
   Host: string;
 }
 
-interface AppSettings {
+export interface AppSettings {
   Targets: Target[];
   Interval: number;
   SuccessColor: string;
@@ -14,7 +14,7 @@ interface AppSettings {
   BackgroundColor: string;
 }
 
-interface PingResult {
+export interface PingResult {
   Host: string;
   Latency: number | null;
   Status: boolean;

@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWindow, Window } from "@tauri-apps/api/window";
 import { X, Minus, Square } from "lucide-react";
 
 export default function TitleBar() {
-  const [appWindow, setAppWindow] = useState<any>(null);
+  const [appWindow, setAppWindow] = useState<Window | null>(null);
 
   useEffect(() => {
     setAppWindow(getCurrentWindow());
